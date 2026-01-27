@@ -47,8 +47,8 @@ def main():
             if not line or line[0] == '#' or line[0] == '\n':
                 continue
             
-            # 进一步过滤不常见的特殊行
-            if line[0] == ' ' and ('buffer started' in line or line.startswith('     ')):
+            # 过滤掉 buffer started 等干扰行，但不应过滤带空格的正常数据行
+            if 'buffer started' in line:
                 continue
 
             match = FTRACE_PATTERN.match(line)
