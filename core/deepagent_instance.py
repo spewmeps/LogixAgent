@@ -13,6 +13,10 @@ from langchain_openai import ChatOpenAI
 from langfuse.langchain import CallbackHandler
 from rich.console import Console
 from rich.panel import Panel
+from langchain.agents.middleware import (
+    ShellToolMiddleware,
+    HostExecutionPolicy,
+)
 
 # 加载环境变量
 load_dotenv()
@@ -90,9 +94,15 @@ def create_logix_agent():
         memory=[os.path.join(project_root, "AGENTS.md")], # Agent identity and general instructions
         skills=[os.path.join(project_root, "skills")],    # Specialized workflows
         backend=FilesystemBackend(root_dir=project_root), # Persistent file storage
+         middleware=[
+        ShellToolMiddleware(
+            workspace_root="/",
+            execution_policy=HostExecutionPolicy(),
+        ),
+    ],
         checkpointer=checkpointer,
     )
-
+   
     # 初始化 Langfuse 回调
     handler = CallbackHandler()
 
