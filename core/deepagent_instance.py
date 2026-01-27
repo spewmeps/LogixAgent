@@ -8,21 +8,11 @@ from dotenv import load_dotenv
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend
 from deepagents.backends.filesystem import FilesystemBackend
-from deepagents.middleware import MemoryMiddleware, SkillsMiddleware
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langfuse.langchain import CallbackHandler
 from rich.console import Console
 from rich.panel import Panel
-
-# Import CLI middlewares for consistency with agent.py
-try:
-    from deepagents_cli.local_context import LocalContextMiddleware
-    from deepagents_cli.shell import ShellMiddleware
-except ImportError:
-    # Fallback if not available
-    LocalContextMiddleware = None
-    ShellMiddleware = None
 
 # 加载环境变量
 load_dotenv()
@@ -85,22 +75,6 @@ def create_logix_agent():
         routes={"/large_tool_results/": large_results_backend}
     )
 
-    # 构造中间件栈 (参考 agent.py)
-    agent_middleware = []
-
-    # 1. 本地上下文中间件
-    if LocalContextMiddleware:
-        agent_middleware.append(LocalContextMiddleware())
-
-    # 2. Shell 中间件
-    if ShellMiddleware:
-        agent_middleware.append(
-            ShellMiddleware(
-                workspace_root=project_root,
-                env=os.environ.copy()
-            )
-        )
-
     # 初始化模型
     model = ChatOpenAI(
         model=model_name,
@@ -116,7 +90,6 @@ def create_logix_agent():
         memory=[os.path.join(project_root, "AGENTS.md")], # Agent identity and general instructions
         skills=[os.path.join(project_root, "skills")],    # Specialized workflows
         backend=FilesystemBackend(root_dir=project_root), # Persistent file storage
-        middleware=agent_middleware,
         checkpointer=checkpointer,
     )
 
