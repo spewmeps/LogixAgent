@@ -142,12 +142,11 @@ def create_logix_agent():
         Tool(name=FileEditorTool.name),
     ]
 
-    # 5. 初始化 Agent (参考示例)
+    # 5. 初始化 Agent
     agent = Agent(
         llm=llm,
         tools=tools,
         agent_context=agent_context,
-        system_prompt_filename=os.path.join(project_root, "01_loading_agentskills", "prompt.txt"),
     )
 
     return agent
