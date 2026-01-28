@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ftrace HTML Report Generator
-Creates a comprehensive HTML report with analysis and recommendations.
+ftrace HTML 报告生成器
+创建一个包含分析结果和建议的全面 HTML 报告。
 """
 
 import sys

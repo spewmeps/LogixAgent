@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ftrace Visualizer
-Creates time-series visualizations of ftrace scheduling events.
+ftrace 可视化工具
+创建 ftrace 调度事件的时间序列可视化图表。
 """
 
 import sys

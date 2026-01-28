@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ftrace Comparison Tool
-Compares two ftrace files (baseline vs problem) to identify differences.
+ftrace 对比工具
+对比两个 ftrace 文件（基准 vs 问题）以识别差异。
 """
 
 import sys

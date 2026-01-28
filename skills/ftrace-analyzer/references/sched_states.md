@@ -1,325 +1,100 @@
-# Linux Task States Reference
+# Linux 任务状态参考
 
-Comprehensive guide to Linux task states as seen in ftrace `sched_switch` events.
+关于 ftrace `sched_switch` 事件中可见的 Linux 任务状态的全面指南。
 
-## Task State Codes
+## 任务状态代码
 
-### R - Running or Runnable
-**Full Name**: TASK_RUNNING
+### R - 正在运行或可运行 (Running or Runnable)
+**全称**：TASK_RUNNING
 
-**Meaning**: The task is either:
-1. Currently executing on a CPU
-2. Ready to run and waiting in the run queue
+**含义**：任务正处于以下状态之一：
+1. 正在 CPU 上执行
+2. 已准备好运行，正在运行队列中等待
 
-**Characteristics**:
-- The task wants CPU time
-- No external event is being waited for
-- Will run as soon as scheduler selects it
+**特征**：
+- 任务需要 CPU 时间
+- 不在等待任何外部事件
+- 只要调度器选中它，就会立即运行
 
-**Analysis Implications**:
-- High R-state time → CPU-bound workload
-- Many tasks in R-state → CPU contention
-- Context switches from R → R indicate CPU sharing/preemption
+**分析意义**：
+- R 状态时间长 → CPU 密集型负载
+- 大量任务处于 R 状态 → CPU 资源竞争激烈
+- R → R 的上下文切换表示 CPU 分时或抢占
 
-**When to Investigate**:
-- Too many R-state tasks compared to available CPUs
-- Single task monopolizing CPU (check priorities)
-
----
-
-### S - Interruptible Sleep
-**Full Name**: TASK_INTERRUPTIBLE
-
-**Meaning**: The task is sleeping, waiting for an event, and can be interrupted by signals.
-
-**Common Reasons**:
-- Waiting for user input
-- Waiting for network data
-- Waiting for timer expiry
-- Waiting on locks with timeout
-- Sleeping between work items
-
-**Characteristics**:
-- Can be woken by signals (SIGTERM, SIGKILL, etc.)
-- Voluntarily gave up CPU
-- Normal and expected state for idle tasks
-
-**Analysis Implications**:
-- Normal state for most tasks most of the time
-- Frequent S → R transitions indicate event-driven workload
-- Long S periods indicate idle or waiting tasks
-
-**When to Investigate**:
-- Task should be working but is in S-state
-- Unexpected wake-up patterns
-- Abnormally short or long sleep periods
+**何时需要调查**：
+- 与可用 CPU 核心数相比，处于 R 状态的任务过多
+- 单个任务长时间独占 CPU（检查优先级）
 
 ---
 
-### D - Uninterruptible Sleep
-**Full Name**: TASK_UNINTERRUPTIBLE
+### S - 可中断睡眠 (Interruptible Sleep)
+**全称**：TASK_INTERRUPTIBLE
 
-**Meaning**: The task is sleeping and CANNOT be interrupted by signals.
+**含义**：任务正在睡眠等待某个事件，且可以被信号中断。
 
-**Common Reasons**:
-- Waiting for disk I/O completion
-- Waiting for network I/O (sometimes)
-- Waiting for device driver operations
-- Holding critical kernel locks
-- NFS operations (notorious)
+**常见原因**：
+- 等待用户输入
+- 等待网络数据
+- 等待定时器到期
+- 等待带超时的锁
+- 在工作任务之间休眠
 
-**Characteristics**:
-- Cannot be killed (even with SIGKILL)
-- Usually brief (milliseconds to seconds)
-- If prolonged, indicates stuck I/O or deadlock
+**特征**：
+- 可以被信号（如 SIGTERM, SIGKILL 等）唤醒
+- 主动放弃 CPU
+- 空闲任务的正常预期状态
 
-**⚠️ Critical Performance Indicator**:
-- High D-state time = I/O bottleneck
-- Many tasks in D-state = system under I/O stress
-- Stuck in D-state = serious problem (hung task)
+**分析意义**：
+- 对大多数任务而言，这是大部分时间里的正常状态
+- 频繁的 S → R 转换表示事件驱动型负载
+- 长时间的 S 状态表示任务处于空闲或等待中
 
-**Analysis Implications**:
-```
-D-state count → I/O operations frequency
-D-state duration → I/O latency
-Many D-state tasks → I/O subsystem saturation
-```
-
-**When to Investigate**:
-- Any task stuck in D-state for >120 seconds (hung_task_timeout)
-- Frequent D-state transitions (check storage performance)
-- Multiple VMs in D-state (host I/O bottleneck)
-
-**Common Culprits**:
-- Slow disk/SSD
-- Network file systems (NFS, CIFS)
-- RAID rebuilds
-- Failing hardware
-- Kernel deadlocks
+**何时需要调查**：
+- 任务本应工作却处于 S 状态
+- 异常的唤醒模式
+- 异常短或异常长的睡眠周期
 
 ---
 
-### T - Stopped
-**Full Name**: TASK_STOPPED
+### D - 不可中断睡眠 (Uninterruptible Sleep)
+**全称**：TASK_UNINTERRUPTIBLE
 
-**Meaning**: Task execution stopped by:
-- SIGSTOP signal
-- SIGTSTP signal (Ctrl+Z)
-- SIGTTIN or SIGTTOU signals
+**含义**：任务正在睡眠，且**不能**被信号中断。
 
-**Characteristics**:
-- Task can be resumed with SIGCONT
-- Used by job control (shell background jobs)
-- Debugger breakpoints
+**常见原因**：
+- 等待磁盘 I/O 完成
+- 等待网络 I/O（有时）
+- 等待设备驱动程序操作
+- 持有关键的内核锁
+- NFS 操作（典型原因）
 
-**Analysis Implications**:
-- Usually not relevant for performance analysis
-- May appear in debugging scenarios
+**特征**：
+- 无法被杀掉（即使是 SIGKILL）
+- 通常很短暂（毫秒到秒级）
+- 如果时间过长，通常表示 I/O 卡住或死锁
+
+**⚠️ 关键性能指标**：
+- D 状态时间长 = I/O 瓶颈
+- 大量任务处于 D 状态 = 系统承受巨大的 I/O 压力
+- 卡在 D 状态 = 严重问题（进程悬挂/死机）
+
+**分析意义**：
+```
+D 状态计数 → I/O 操作频率
+D 状态持续时间 → I/O 延迟
+大量 D 状态任务 → I/O 子系统饱和
+```
+
+**何时需要调查**：
+- 任何任务卡在 D 状态超过 120 秒（可能触发 hung_task_timeout）
+- 频繁的 D 状态切换（检查存储性能）
+- 多个虚拟机同时处于 D 状态（宿主机 I/O 瓶颈）
+
+**常见元凶**：
+- 慢速磁盘/SSD
+- 网络文件系统 (NFS, CIFS)
+- RAID 重建
+- 硬件故障
+- 内核死锁
 
 ---
-
-### t - Tracing Stop
-**Full Name**: TASK_TRACED
-
-**Meaning**: Task is stopped by a tracer (ptrace).
-
-**Common Scenarios**:
-- GDB debugging session
-- strace/ltrace attached
-- System call tracing
-
-**Characteristics**:
-- Controlled by another process (the tracer)
-- Can only be resumed by tracer
-
-**Analysis Implications**:
-- Expected when debugging
-- Should not appear in production unless debugging
-
----
-
-### Z - Zombie
-**Full Name**: EXIT_ZOMBIE
-
-**Meaning**: Task has terminated but parent hasn't yet read its exit status.
-
-**Characteristics**:
-- All resources freed except task_struct
-- Waiting for parent to call wait() or waitpid()
-- Cannot be killed (already dead)
-- Takes minimal resources
-
-**Analysis Implications**:
-- Normal to see briefly during process termination
-- Many zombies → parent not reaping children properly
-- Long-lived zombies → parent process bug
-
-**When to Investigate**:
-- Growing zombie count
-- Zombies persisting for extended periods
-- Parent process not calling wait()
-
----
-
-### X - Dead
-**Full Name**: EXIT_DEAD
-
-**Meaning**: Task is being removed from the system.
-
-**Characteristics**:
-- Final state before task_struct is freed
-- Should be very brief
-- Rarely seen in traces
-
-**Analysis Implications**:
-- Seeing this frequently may indicate rapid process churn
-- Should transition quickly to complete removal
-
----
-
-### I - Idle
-**Full Name**: TASK_IDLE (recent kernels)
-
-**Meaning**: Similar to D-state but doesn't contribute to load average.
-
-**Usage**:
-- Kernel worker threads waiting for work
-- I/O operations that shouldn't affect load
-- Introduced to prevent artificial load average inflation
-
-**Characteristics**:
-- Like D-state but doesn't count as "load"
-- Used for kernel threads that wait frequently
-
----
-
-## State Transition Patterns
-
-### Normal Patterns
-
-#### CPU-Bound Task
-```
-R → R → R → R → S (preempted or yields)
-```
-
-#### I/O-Bound Task
-```
-R → D (I/O wait) → R (I/O complete) → S (idle)
-```
-
-#### Interactive Task
-```
-S → R (event) → R (process) → S (wait for input)
-```
-
-#### Timer-Driven Task
-```
-S → R (timer) → R (work) → S (sleep) → ...
-```
-
-### Abnormal Patterns
-
-#### Stuck in D-State
-```
-R → D → D → D → D → ... (hung task)
-```
-**Problem**: I/O not completing, possible hardware failure or deadlock
-
-#### Rapid Context Switching
-```
-R → R → R → R → R (different tasks)
-```
-**Problem**: CPU contention, too many runnable tasks
-
-#### Zombie Accumulation
-```
-R → Z → Z → Z → ...
-```
-**Problem**: Parent not reaping children
-
----
-
-## Analysis Queries
-
-### Find Tasks Blocking on I/O
-```bash
-grep "prev_state=D" ftrace.txt | \
-  awk -F'prev_comm=' '{print $2}' | \
-  awk '{print $1}' | \
-  sort | uniq -c | sort -rn
-```
-
-### Count State Transitions Per Task
-```bash
-grep sched_switch ftrace.txt | \
-  awk -F'prev_comm=|prev_state=' '{print $2, $3}' | \
-  awk '{print $1, $2}' | \
-  sort | uniq -c
-```
-
-### Find Long-Running D-State
-```bash
-# Requires timestamps - look for same PID staying in D-state
-awk '/prev_state=D/ {print $5, $0}' ftrace.txt | \
-  sort -k1 -n
-```
-
----
-
-## Performance Implications by State
-
-| State | CPU Usage | I/O Wait | Impact on Load Avg |
-|-------|-----------|----------|-------------------|
-| R     | High      | No       | Yes               |
-| S     | None      | No       | No                |
-| D     | None      | Yes      | Yes               |
-| T     | None      | No       | No                |
-| Z     | None      | No       | No                |
-| I     | None      | Maybe    | No                |
-
-**Load Average Formula (simplified)**:
-```
-Load = (R-state tasks) + (D-state tasks) + (I-state tasks on old kernels)
-```
-
----
-
-## Best Practices
-
-1. **R-state**: Normal for CPU-bound workloads, but monitor for contention
-2. **S-state**: Expected for idle tasks, check wake-up frequency
-3. **D-state**: Minimize duration and frequency, critical performance metric
-4. **Z-state**: Should be transient, investigate if accumulating
-5. **T-state**: Usually intentional (debugging), ignore in production traces
-
----
-
-## Troubleshooting Checklist
-
-### High D-State Count
-- [ ] Check disk I/O with `iostat -x 1`
-- [ ] Check network I/O if using network storage
-- [ ] Examine dmesg for hardware errors
-- [ ] Review storage array/RAID status
-- [ ] Check NFS mount points (if applicable)
-
-### High R-State Count
-- [ ] Verify CPU count vs workload
-- [ ] Check for CPU-bound processes
-- [ ] Review process priorities
-- [ ] Consider CPU affinity/pinning
-- [ ] Investigate real-time scheduling
-
-### Zombie Accumulation
-- [ ] Identify parent process
-- [ ] Check parent process for bugs
-- [ ] Verify proper signal handling
-- [ ] Review process lifecycle management
-
----
-
-## References
-
-- Linux kernel: include/linux/sched.h
-- Process states: fs/proc/array.c (proc_pid_status)
-- Scheduler: kernel/sched/core.c

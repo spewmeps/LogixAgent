@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ftrace Statistics Analyzer
-Analyzes ftrace logs for scheduling statistics, wake-up patterns, and CPU utilization.
+ftrace 统计分析器
+分析 ftrace 日志中的调度统计、唤醒模式和 CPU 利用率。
 """
 
 import sys
