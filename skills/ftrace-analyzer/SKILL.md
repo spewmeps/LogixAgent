@@ -5,6 +5,12 @@ description: 专业的 ftrace 日志分析工具，遵循“时间归属证明�
 
 # ftrace 日志分析 Skill
 
+## 使用范围与安全边界
+
+- 本 Skill 仅对**离线 ftrace 日志文件**进行读取和分析。
+- 不会，也不应该在当前运行环境执行任何系统命令（如 `ssh`、`perf`、`trace-cmd` 等）。
+- 日志所属主机与当前运行环境无关，请在目标主机上完成采集后，仅将日志文件交给本 Skill 做离线分析。
+
 ## 核心哲学：时间归属证明
 
 **ftrace 日志不是“谁调用了谁”，而是一张“CPU 时间账单”。**
@@ -100,6 +106,8 @@ python3 scripts/main.py trace.log --query-comm "myapp" --export-json result.json
 
 脚本路径：[main.py](file:///opt/src/LogixAgent/skills/ftrace-analyzer/scripts/main.py)
 
+> 重要说明：以下命令只对 `trace.log` 等 ftrace 日志文件做离线解析，不会在当前运行环境执行任何系统命令。
+
 | 类别 | 参数 | 功能描述 | 示例 |
 | :--- | :--- | :--- | :--- |
 | **基础信息** | `--summary` | 显示日志文本摘要（起止时间、CPU/进程数等） | `python3 scripts/main.py trace.log --summary` |
@@ -163,7 +171,8 @@ python3 scripts/main.py trace.log --query-comm "myapp" --export-json result.json
 ---
 
 ## 注意事项
-1. **优先使用 CLI 工具进行探索分析**：通过 `main.py` 提供的命令行接口可以快速获取统计数据和过滤结果，无需编写代码。
-2. **复杂自动化场景可调用 API**：对于需要高度定制的复杂分析逻辑，可以使用 `TraceFile` 和 `Analyzer` 提供的 Python 类库进行二次开发。
-3. **关注长尾**：1% 的 10ms 卡顿比 99% 的 10us 正常运行更具诊断价值。
-4. **保持怀疑**：日志可能因缓冲区溢出而丢失，结论需具备可证伪性。
+1. **仅针对离线日志分析**：本 Skill 只读取并分析你提供的 ftrace 日志，不会在当前环境执行任何系统命令；请在目标主机上完成采集后再上传日志。
+2. **优先使用 CLI 工具进行探索分析**：通过 `main.py` 提供的命令行接口可以快速获取统计数据和过滤结果，无需编写代码。
+3. **复杂自动化场景可调用 API**：对于需要高度定制的复杂分析逻辑，可以使用 `TraceFile` 和 `Analyzer` 提供的 Python 类库进行二次开发。
+4. **关注长尾**：1% 的 10ms 卡顿比 99% 的 10us 正常运行更具诊断价值。
+5. **保持怀疑**：日志可能因缓冲区溢出而丢失，结论需具备可证伪性。

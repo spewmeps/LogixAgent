@@ -12,15 +12,14 @@ echo "===================================================="
 echo "开始执行 Ftrace Analyzer 综合测试"
 echo "测试脚本位置: $SCRIPT_DIR"
 echo "核心脚本位置: $CORE_SCRIPTS_DIR"
-echo "测试数据源: /opt/src/LogixAgent/logs/ftrace/trace.log (回退: /opt/src/LogixAgent/logs/agent.log)"
+echo "测试数据源: /opt/src/LogixAgent/logs/ftrace/trace.log"
 echo "===================================================="
 
-# 检查日志文件是否存在
-LOG_FILE="/opt/src/LogixAgent/logs/agent.log"
+# 检查 ftrace 日志文件是否存在（不再使用 agent.log 回退）
+LOG_FILE="/opt/src/LogixAgent/logs/ftrace/trace.log"
 if [ ! -f "$LOG_FILE" ]; then
-    echo "警告: $LOG_FILE 不存在，将创建一个空文件进行测试。"
-    mkdir -p $(dirname "$LOG_FILE")
-    touch "$LOG_FILE"
+    echo "错误: $LOG_FILE 不存在，请先在目标主机采集 ftrace 日志并放置到该路径。"
+    exit 1
 fi
 
 # 临时修复相对导入问题以进行测试
