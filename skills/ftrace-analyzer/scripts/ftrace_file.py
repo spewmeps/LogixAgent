@@ -7,7 +7,7 @@ from typing import List, Dict, Tuple, Optional, Any
 try:
     from .ftrace_models import Event
 except ImportError:
-    from .ftrace_models import Event
+    from ftrace_models import Event
 
 class TraceFile:
     """
