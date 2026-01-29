@@ -3,9 +3,11 @@ import argparse
 import json
 import os
 try:
+    # 作为包运行时（python -m skills.ftrace-analyzer.scripts.main）
     from .ftrace_file import TraceFile
     from .ftrace_analyzer import Analyzer
 except (ImportError, ValueError):
+    # 作为单文件脚本运行时（python scripts/main.py）
     from .ftrace_file import TraceFile
     from .ftrace_analyzer import Analyzer
 
