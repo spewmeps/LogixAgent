@@ -31,11 +31,12 @@ class FtraceParser:
     """高效的 ftrace 日志解析器"""
     
     # ftrace 典型格式：
-    # task-pid [cpu] timestamp: event_type: details
-    # 示例: kworker/0:1H-234   [000] 12345.678901: sched_switch: prev_comm=...
+    # task-pid [cpu] irqs-off... timestamp: event_type: details
+    # 示例: kworker/0:1H-234   [000] d.... 12345.678901: sched_switch: prev_comm=...
     PATTERN = re.compile(
         r'^\s*(?P<task>[\w\s/:.()-]+?)-(?P<pid>\d+)\s+'
         r'\[(?P<cpu>\d+)\]\s+'
+        r'(?P<irqs>[\w.]{5})\s+'
         r'(?P<timestamp>[\d.]+):\s+'
         r'(?P<event_type>\w+):\s+'
         r'(?P<details>.+)$'

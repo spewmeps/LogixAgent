@@ -138,26 +138,27 @@ class SchedAnalyzer:
         
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
-                # 简单解析（可以使用 ftrace_parser.py 但为了独立性这里简化）
-                parts = line.split(':', 3)
-                if len(parts) < 4:
-                    continue
-                
                 try:
-                    # 提取基本信息
-                    header = parts[0]
-                    event_type = parts[2].strip()
-                    details = parts[3].strip()
-                    
-                    # 提取时间戳和 CPU
-                    time_match = re.search(r'\[\d+\]\s+([\d.]+)', header)
-                    cpu_match = re.search(r'\[(\d+)\]', header)
-                    
-                    if not (time_match and cpu_match):
+                    # 匹配 ftrace 格式
+                    # task-pid [cpu] irqs... timestamp: event_type: details
+                    # 示例: swapper/5-0 [005] d.... 7541.834045: sched_switch: ...
+                    pattern = re.compile(
+                        r'^\s*.*-(?P<pid>\d+)\s+'
+                        r'\[(?P<cpu>\d+)\]\s+'
+                        r'(?P<irqs>[\w.]{5})\s+'
+                        r'(?P<timestamp>[\d.]+):\s+'
+                        r'(?P<event_type>\w+):\s+'
+                        r'(?P<details>.+)$'
+                    )
+                    match = pattern.match(line)
+                    if not match:
                         continue
                     
-                    timestamp = float(time_match.group(1))
-                    cpu = int(cpu_match.group(1))
+                    data = match.groupdict()
+                    timestamp = float(data['timestamp'])
+                    cpu = int(data['cpu'])
+                    event_type = data['event_type']
+                    details = data['details']
                     
                     # 应用过滤器
                     if filters.get('cpu') is not None and cpu != filters['cpu']:

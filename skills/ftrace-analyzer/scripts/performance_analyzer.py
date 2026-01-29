@@ -348,7 +348,7 @@ class PerformanceAnalyzer:
             print(f"  抢占率增加: {dev['preemption_rate_increase']:.2%}")
             
             if dev['verdict'] == '运行被切碎':
-                print(f"  ⚠️  异常信号：线程"活着"但几乎没干成事")
+                print(f"  ⚠️  异常信号：线程 '活着' 但几乎没干成事")
         
         # 3. 时间窃贼
         if 'time_thieves' in anomalies and anomalies['time_thieves']:
@@ -493,7 +493,7 @@ class PerformanceAnalyzer:
                 print(f"\n  异常信号：")
                 for issue in issues:
                     print(f"    {issue}")
-                print(f"\n    → 线程"活着"但几乎没干成事")
+                print(f"\n    → 线程 '活着' 但几乎没干成事")
             else:
                 print(f"\n  ✓ 运行时间片正常（> 5ms）")
         
