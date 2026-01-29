@@ -1,5 +1,8 @@
 from typing import List, Dict, Any, Callable, Optional
-from .ftrace_models import Event
+try:
+    from .ftrace_models import Event
+except ImportError:
+    from ftrace_models import Event
 
 class QueryResult:
     """查询结果容器"""

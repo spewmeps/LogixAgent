@@ -8,8 +8,8 @@ try:
     from .ftrace_analyzer import Analyzer
 except (ImportError, ValueError):
     # 作为单文件脚本运行时（python scripts/main.py）
-    from .ftrace_file import TraceFile
-    from .ftrace_analyzer import Analyzer
+    from ftrace_file import TraceFile
+    from ftrace_analyzer import Analyzer
 
 def main():
     parser = argparse.ArgumentParser(description='Ftrace Parser & Analyzer Tool')

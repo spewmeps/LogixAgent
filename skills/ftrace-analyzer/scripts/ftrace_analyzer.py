@@ -1,6 +1,10 @@
 from typing import Dict, List, Any, Optional, Tuple, Callable
-from .ftrace_file import TraceFile
-from .ftrace_models import Event
+try:
+    from .ftrace_file import TraceFile
+    from .ftrace_models import Event
+except ImportError:
+    from ftrace_file import TraceFile
+    from ftrace_models import Event
 import statistics
 
 class Analyzer:
