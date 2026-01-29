@@ -2,8 +2,12 @@ import os
 import re
 import mmap
 import pickle
+import sqlite3
 from typing import List, Dict, Tuple, Optional, Any
-from .ftrace_models import Event
+try:
+    from .ftrace_models import Event
+except ImportError:
+    from .ftrace_models import Event
 
 class TraceFile:
     """
@@ -28,19 +32,26 @@ class TraceFile:
 
     def __init__(self, filepath: str, 
                  index_by: List[str] = ['timestamp', 'cpu', 'pid'],
-                 lazy_load: bool = True):
+                 lazy_load: bool = True,
+                 use_sqlite: bool = True):
         self.filepath = os.path.abspath(filepath)
         self.index_path = self.filepath + ".index"
         self._info = {}
         self._index = None
         self._lazy_load = lazy_load
         self._index_by = index_by
+        self._use_sqlite = use_sqlite
+        self._db_path = self.filepath + ".sqlite"
+        self._conn: Optional[sqlite3.Connection] = None
+        self._prebuild_db = os.getenv("FTRACE_PREBUILD_DB", "0") == "1"
         
         if not os.path.exists(self.filepath):
             raise FileNotFoundError(f"Log file not found: {self.filepath}")
             
-        if not lazy_load:
+        if not lazy_load and not self._use_sqlite:
             self.build_index()
+        if self._use_sqlite and self._prebuild_db:
+            self._ensure_db()
 
     def info(self) -> Dict[str, Any]:
         """获取文件元信息（快速，不解析全部内容）"""
@@ -205,7 +216,17 @@ CPU 数: {info['cpu_count']}
         print("Index built.")
 
     def has_index(self) -> bool:
+        if self._use_sqlite:
+            return os.path.exists(self._db_path)
         return os.path.exists(self.index_path)
+
+    def ensure_sqlite(self, force: bool = False):
+        if not self._use_sqlite:
+            return
+        if force and os.path.exists(self._db_path):
+            os.remove(self._db_path)
+            self._conn = None
+        self._ensure_db()
 
     def parse_line(self, line: str, line_no: Optional[int] = None) -> Optional[Event]:
         match = self.PATTERN.match(line)
@@ -244,8 +265,134 @@ CPU 数: {info['cpu_count']}
         from .ftrace_query import QueryBuilder
         return QueryBuilder(self)
 
+    def _ensure_db(self):
+        if not self._use_sqlite:
+            return
+        if self._conn is None:
+            self._conn = sqlite3.connect(self._db_path)
+            self._conn.row_factory = sqlite3.Row
+        c = self._conn.cursor()
+        c.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
+        c.execute(
+            "CREATE TABLE IF NOT EXISTS events ("
+            "id INTEGER PRIMARY KEY,"
+            "ts REAL,"
+            "cpu INTEGER,"
+            "pid INTEGER,"
+            "comm TEXT,"
+            "irqs TEXT,"
+            "event_type TEXT,"
+            "details TEXT,"
+            "raw_line TEXT,"
+            "line_no INTEGER,"
+            "prev_comm TEXT,"
+            "prev_pid INTEGER,"
+            "prev_prio INTEGER,"
+            "prev_state TEXT,"
+            "next_comm TEXT,"
+            "next_pid INTEGER,"
+            "next_prio INTEGER"
+            ")"
+        )
+        c.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_events_cpu_ts ON events(cpu, ts)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_events_pid_ts ON events(pid, ts)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_events_comm_ts ON events(comm, ts)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_events_event_ts ON events(event_type, ts)")
+        stats = os.stat(self.filepath)
+        file_mtime = str(stats.st_mtime)
+        c.execute("SELECT value FROM meta WHERE key = 'file_mtime'")
+        row = c.fetchone()
+        need_rebuild = row is None or row["value"] != file_mtime
+        if need_rebuild:
+            c.execute("DELETE FROM events")
+            line_no = 0
+            batch = []
+            with open(self.filepath, "r") as f:
+                for line in f:
+                    line_no += 1
+                    event = self.parse_line(line, line_no)
+                    if not event:
+                        continue
+                    batch.append(
+                        (
+                            event.timestamp,
+                            event.cpu,
+                            event.pid,
+                            event.task,
+                            event.irqs,
+                            event.event_type,
+                            event.details,
+                            event.raw_line,
+                            event.line_no,
+                            event.prev_comm,
+                            event.prev_pid,
+                            event.prev_prio,
+                            event.prev_state,
+                            event.next_comm,
+                            event.next_pid,
+                            event.next_prio,
+                        )
+                    )
+                    if len(batch) >= 1000:
+                        c.executemany(
+                            "INSERT INTO events (ts, cpu, pid, comm, irqs, event_type, details, raw_line, line_no, prev_comm, prev_pid, prev_prio, prev_state, next_comm, next_pid, next_prio) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            batch,
+                        )
+                        batch = []
+            if batch:
+                c.executemany(
+                    "INSERT INTO events (ts, cpu, pid, comm, irqs, event_type, details, raw_line, line_no, prev_comm, prev_pid, prev_prio, prev_state, next_comm, next_pid, next_prio) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    batch,
+                )
+            c.execute(
+                "INSERT OR REPLACE INTO meta(key, value) VALUES('file_mtime', ?)",
+                (file_mtime,),
+            )
+            self._conn.commit()
+
     def iter_events(self, start_ts: float = None, end_ts: float = None):
-        """流式迭代事件，利用索引加速"""
+        if self._use_sqlite:
+            self._ensure_db()
+            c = self._conn.cursor()
+            where = []
+            params: List[Any] = []
+            if start_ts is not None:
+                where.append("ts >= ?")
+                params.append(start_ts)
+            if end_ts is not None:
+                where.append("ts <= ?")
+                params.append(end_ts)
+            sql = (
+                "SELECT ts, cpu, pid, comm, irqs, event_type, details, raw_line, line_no, "
+                "prev_comm, prev_pid, prev_prio, prev_state, next_comm, next_pid, next_prio "
+                "FROM events"
+            )
+            if where:
+                sql += " WHERE " + " AND ".join(where)
+            sql += " ORDER BY ts ASC"
+            for row in c.execute(sql, params):
+                yield Event(
+                    task=row["comm"],
+                    pid=row["pid"],
+                    cpu=row["cpu"],
+                    irqs=row["irqs"],
+                    timestamp=row["ts"],
+                    event_type=row["event_type"],
+                    details=row["details"],
+                    raw_line=row["raw_line"],
+                    line_no=row["line_no"],
+                    prev_comm=row["prev_comm"],
+                    prev_pid=row["prev_pid"],
+                    prev_prio=row["prev_prio"],
+                    prev_state=row["prev_state"],
+                    next_comm=row["next_comm"],
+                    next_pid=row["next_pid"],
+                    next_prio=row["next_prio"],
+                )
+            return
         start_offset = 0
         start_line_no = 1
         if start_ts and self._index:
