@@ -113,6 +113,7 @@ python3 scripts/main.py trace.log --query-comm "myapp" --export-json result.json
 | **基础信息** | `--summary` | 显示日志文本摘要（起止时间、CPU/进程数等） | `python3 scripts/main.py trace.log --summary` |
 | | `--info` | 以 JSON 格式输出详细的元数据和统计信息 | `python3 scripts/main.py trace.log --info` |
 | **核心分析** | `--analyze-gaps MS` | 检测大于 MS 毫秒的时间断层，识别 CPU 空白期 | `python3 scripts/main.py trace.log --analyze-gaps 0.1` |
+| | `--analyze-qos` | 检测可能由 CPU QoS 导致的规律性时延（5-10ms） | `python3 scripts/main.py trace.log --analyze-qos` |
 | | `--classify` | 统计执行上下文分区占比（用户、内核、中断、软中断） | `python3 scripts/main.py trace.log --classify` |
 | | `--stats COMM` | 获取特定进程名的调度性能统计（次数、耗时、时间片） | `python3 scripts/main.py trace.log --stats "myapp"` |
 | | `--check-pid PID` | 检查特定 PID 的运行状态、调度延迟及平均时间片 | `python3 scripts/main.py trace.log --check-pid 1234` |
@@ -146,6 +147,25 @@ python3 scripts/main.py trace.log --query-comm "myapp" --export-json result.json
 如需补充统计类信息（例如聚合统计结果、百分位数等），同样需要给出可以复现该统计的命令或查询条件，但**不在结论中写解决方案或验证步骤**。
 
 ---
+
+## 故障检测与识别指南
+
+### 1. CPU QoS 导致的规律性时延
+**现象特征**：
+- **时延集中**：调度延迟高度集中在 5~10ms 之间（通常吻合 CPU QoS 默认粒度）。
+- **规律性**：延迟出现具有明显的周期性或在时间轴上分布均匀。
+- **CPU 空闲**：延迟期间 CPU 往往处于空闲状态（无软/硬中断或高优先级任务抢占），表现为 ftrace 上的大段空白间隙。
+
+**分析逻辑**：
+1. **非随机波动**：延迟不是随机出现的，而是被某种机制“整齐”地切分。
+2. **QoS 基线吻合**：5~10ms 的延迟时长与内核 CPU QoS (Bandwidth Control) 的默认检测周期高度一致。
+3. **空闲却不调度**：任务 Runnable 但 CPU 空闲且不调度，强烈暗示是配额（Quota）耗尽导致的 Throttling。
+
+**检测命令**：
+```bash
+# 自动检测是否存在 QoS 导致的规律性时延
+python3 scripts/main.py trace.log --analyze-qos
+```
 
 ## 典型异常信号清单
 

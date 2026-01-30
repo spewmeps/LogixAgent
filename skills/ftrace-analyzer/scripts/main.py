@@ -46,6 +46,10 @@ def main():
             analyzer = Analyzer(trace)
             print(json.dumps(analyzer.detect_time_anomalies(args.analyze_gaps), indent=2))
             
+        if args.analyze_qos:
+            analyzer = Analyzer(trace)
+            print(json.dumps(analyzer.detect_qos_patterns(), indent=2))
+            
         if args.classify:
             analyzer = Analyzer(trace)
             print(json.dumps(analyzer.classify_contexts(), indent=2))

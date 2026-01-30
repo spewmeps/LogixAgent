@@ -117,6 +117,101 @@ class Analyzer:
                 
         return stats
 
+    def detect_qos_patterns(self, min_ms: float = 4.0, max_ms: float = 12.0) -> Dict[str, Any]:
+        """
+        检测可能由 CPU QoS 导致的规律性时延。
+        特征：
+        1. 延迟集中在 5~10ms (默认覆盖 4-12ms)
+        2. 延迟期间 CPU 空闲 (ftrace 上表现为单核大间隙)
+        3. 出现具有规律性
+        """
+        qos_suspects = {} # cpu -> list of gaps
+        last_ts = {} # cpu -> float
+        
+        # 1. 扫描每颗 CPU 的静默间隙
+        for event in self.trace.iter_events():
+            cpu = event.cpu
+            ts = event.timestamp
+            
+            if cpu in last_ts:
+                duration_ms = (ts - last_ts[cpu]) * 1000
+                if min_ms <= duration_ms <= max_ms:
+                    if cpu not in qos_suspects:
+                        qos_suspects[cpu] = []
+                    qos_suspects[cpu].append({
+                        'start': last_ts[cpu],
+                        'end': ts,
+                        'duration_ms': duration_ms,
+                        'end_line_no': event.line_no
+                    })
+            
+            last_ts[cpu] = ts
+            
+        # 2. 分析规律性
+        results = {}
+        detected_cpus = []
+        
+        for cpu, gaps in qos_suspects.items():
+            if len(gaps) < 3: continue # 样本太少
+            
+            # 统计 Gap 时长的集中度
+            durations = [g['duration_ms'] for g in gaps]
+            avg_duration = statistics.mean(durations)
+            
+            # 计算变异系数 (CV) 判断时长是否集中
+            try:
+                stdev_duration = statistics.stdev(durations)
+                cv_duration = stdev_duration / avg_duration if avg_duration > 0 else 0
+            except statistics.StatisticsError:
+                cv_duration = 0
+                
+            # 分析间隙发生的周期性 (gap start time intervals)
+            starts = [g['start'] for g in gaps]
+            intervals = [(starts[i+1] - starts[i]) * 1000 for i in range(len(starts)-1)]
+            
+            avg_interval = 0
+            cv_interval = 0
+            if intervals:
+                avg_interval = statistics.mean(intervals)
+                try:
+                    stdev_interval = statistics.stdev(intervals)
+                    cv_interval = stdev_interval / avg_interval if avg_interval > 0 else 0
+                except statistics.StatisticsError:
+                    pass
+            
+            # 判定逻辑：
+            # 如果 Gap 时长高度集中 (CV < 0.2) 且平均值在 5-10ms 之间
+            # 或者 周期性非常强
+            is_qos_suspect = False
+            confidence = "low"
+            
+            if 5.0 <= avg_duration <= 10.0:
+                if cv_duration < 0.2: # 比如 5ms, 5.1ms, 4.9ms -> 非常集中
+                    is_qos_suspect = True
+                    confidence = "high"
+                elif cv_duration < 0.4:
+                    is_qos_suspect = True
+                    confidence = "medium"
+            
+            if is_qos_suspect:
+                detected_cpus.append(cpu)
+                results[f"cpu_{cpu}"] = {
+                    'count': len(gaps),
+                    'avg_duration_ms': round(avg_duration, 2),
+                    'duration_cv': round(cv_duration, 2),
+                    'avg_interval_ms': round(avg_interval, 2),
+                    'interval_cv': round(cv_interval, 2),
+                    'confidence': confidence,
+                    'msg': f"Detected {len(gaps)} regular gaps (avg {avg_duration:.2f}ms) on CPU {cpu}. This strongly suggests CPU QoS throttling.",
+                    'samples': gaps[:5] 
+                }
+        
+        return {
+            'suspected_qos': len(results) > 0,
+            'details': results,
+            'summary': f"Detected QoS-like patterns on CPUs: {detected_cpus}" if results else "No obvious QoS throttling patterns detected."
+        }
+
     def get_context_timeline(self, cpu: int) -> List[Dict[str, Any]]:
         """获取某个 CPU 的上下文切换时间线"""
         timeline = []
