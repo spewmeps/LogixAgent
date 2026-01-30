@@ -17,12 +17,12 @@ class TraceFile:
     
     # 匹配 ftrace 标准格式的正则
     PATTERN = re.compile(
-        r'^\s*(?P<task>[\w\s/:.()<>!@#$%-]+?)-(?P<pid>\d+)\s+'
+        r'^\s*(?P<task>[<>\w\s/:.()!@#$%\-]+?)-(?P<pid>\d+)\s+'
         r'\[(?P<cpu>\d+)\]\s+'
-        r'(?P<irqs>[\w.]{5})\s+'
-        r'(?P<timestamp>[\d.]+):\s+'
+        r'(?P<irqs>[\w.]{0,10})\s+'
+        r'(?P<timestamp>\d+\.\d+):\s+'
         r'(?P<event_type>\w+):\s+'
-        r'(?P<details>.+)$'
+        r'(?P<details>.+?)$'
     )
     
     # 匹配 sched_switch 详情的正则
@@ -262,7 +262,10 @@ CPU 数: {info['cpu_count']}
         return event
 
     def query(self):
-        from .ftrace_query import QueryBuilder
+        try:
+            from .ftrace_query import QueryBuilder
+        except ImportError:
+            from ftrace_query import QueryBuilder
         return QueryBuilder(self)
 
     def _ensure_db(self):
