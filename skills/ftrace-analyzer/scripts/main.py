@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--summary', action='store_true', help='Show text summary')
     parser.add_argument('--info', action='store_true', help='Show JSON metadata')
     parser.add_argument('--analyze-gaps', type=float, metavar='MS', help='Detect time gaps larger than MS')
+    parser.add_argument('--analyze-qos', action='store_true', help='Detect QoS throttling patterns')
     parser.add_argument('--classify', action='store_true', help='Classify contexts')
     parser.add_argument('--stats', type=str, metavar='COMM', help='Get scheduling stats for a process name')
     parser.add_argument('--check-pid', type=int, metavar='PID', help='Check specific PID running status')
