@@ -1,39 +1,62 @@
 #!/bin/bash
 
-# 获取脚本所在目录
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# 核心脚本目录
-CORE_SCRIPTS_DIR="/opt/src/LogixAgent/skills/ftrace-analyzer/scripts"
+TEST_DIR="/opt/src/LogixAgent/test"
+LOG_FILE="$TEST_DIR/test_results.log"
+TRACE_FILE="/opt/src/LogixAgent/logs/ftrace/trace.log"
+SCRIPTS_DIR="/opt/src/LogixAgent/skills/ftrace-analyzer/scripts"
 
-# 设置 PYTHONPATH 确保可以找到模块
-export PYTHONPATH=$PYTHONPATH:$CORE_SCRIPTS_DIR
+echo "========================================================" > "$LOG_FILE"
+echo "Starting Ftrace Analysis Scripts Test Suite" >> "$LOG_FILE"
+echo "Date: $(date)" >> "$LOG_FILE"
+echo "Trace File: $TRACE_FILE" >> "$LOG_FILE"
+echo "========================================================" >> "$LOG_FILE"
 
-echo "===================================================="
-echo "开始执行 Ftrace Analyzer 综合测试"
-echo "测试脚本位置: $SCRIPT_DIR"
-echo "核心脚本位置: $CORE_SCRIPTS_DIR"
-echo "测试数据源: /opt/src/LogixAgent/logs/ftrace/trace.log"
-echo "===================================================="
+# Test 1: run_perfetto_analysis.py (Legacy/Simple Runner)
+echo "" >> "$LOG_FILE"
+echo "--------------------------------------------------------" >> "$LOG_FILE"
+echo "[Test 1] Running run_perfetto_analysis.py..." >> "$LOG_FILE"
+echo "--------------------------------------------------------" >> "$LOG_FILE"
 
-# 检查 ftrace 日志文件是否存在（不再使用 agent.log 回退）
-LOG_FILE="/opt/src/LogixAgent/logs/ftrace/trace.log"
-if [ ! -f "$LOG_FILE" ]; then
-    echo "错误: $LOG_FILE 不存在，请先在目标主机采集 ftrace 日志并放置到该路径。"
-    exit 1
+python3 "$SCRIPTS_DIR/run_perfetto_analysis.py" >> "$LOG_FILE" 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "✅ run_perfetto_analysis.py completed successfully." >> "$LOG_FILE"
+else
+    echo "❌ run_perfetto_analysis.py failed." >> "$LOG_FILE"
 fi
 
-# 临时修复相对导入问题以进行测试
-cd $CORE_SCRIPTS_DIR
-sed -i 's/from \.ftrace/from ftrace/g' ftrace_file.py ftrace_analyzer.py ftrace_query.py main.py
+# Test 2: global_analysis.py (Global Analysis Report - File Output)
+echo "" >> "$LOG_FILE"
+echo "--------------------------------------------------------" >> "$LOG_FILE"
+echo "[Test 2] Running global_analysis.py (File Output Mode)..." >> "$LOG_FILE"
+echo "--------------------------------------------------------" >> "$LOG_FILE"
 
-# 执行 Python 测试脚本
-cd $SCRIPT_DIR
-python3 test_ftrace_analyzer.py -v
+REPORT_DIR="$TEST_DIR/reports"
+mkdir -p "$REPORT_DIR"
+python3 "$SCRIPTS_DIR/global_analysis.py" "$TRACE_FILE" --output_dir "$REPORT_DIR" --jobs 4 --force >> "$LOG_FILE" 2>&1
 
-# 还原相对导入
-cd $CORE_SCRIPTS_DIR
-sed -i 's/from ftrace/from .ftrace/g' ftrace_file.py ftrace_analyzer.py ftrace_query.py main.py
+if [ $? -eq 0 ]; then
+    echo "✅ global_analysis.py completed successfully." >> "$LOG_FILE"
+    echo "Report generated at: $REPORT_DIR/report_trace.log.md" >> "$LOG_FILE"
+else
+    echo "❌ global_analysis.py failed." >> "$LOG_FILE"
+fi
 
-echo "===================================================="
-echo "测试执行完毕"
-echo "===================================================="
+# Test 3: query_analysis.py (Ad-hoc Query)
+echo "" >> "$LOG_FILE"
+echo "--------------------------------------------------------" >> "$LOG_FILE"
+echo "[Test 3] Running query_analysis.py (Sched Table Count)..." >> "$LOG_FILE"
+echo "Query: SELECT count(*) as sched_count FROM sched" >> "$LOG_FILE"
+echo "--------------------------------------------------------" >> "$LOG_FILE"
+
+python3 "$SCRIPTS_DIR/query_analysis.py" "$TRACE_FILE" --query "SELECT count(*) as sched_count FROM sched" --format table >> "$LOG_FILE" 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "✅ query_analysis.py completed successfully." >> "$LOG_FILE"
+else
+    echo "❌ query_analysis.py failed." >> "$LOG_FILE"
+fi
+
+echo "" >> "$LOG_FILE"
+echo "========================================================" >> "$LOG_FILE"
+echo "Test Suite Completed." >> "$LOG_FILE"

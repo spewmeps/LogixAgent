@@ -11,3 +11,16 @@ ENV/
 .deepagents/
 logs/
 *.log
+
+# Ftrace Analyzer ignores
+*.trace
+*.csv
+test/reports/
+test/*.log
+test/*.csv
+test/*.md
+output.txt
+test_output.txt
+workspace/
+ftrace/
+doc/change
