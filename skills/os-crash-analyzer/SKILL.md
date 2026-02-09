@@ -384,210 +384,92 @@ crash> mod -s <module>                     # 检查模块版本
 crash> grep <function> <source>            # 审查代码中类似的模式
 ```
 
-#### 步骤 5.7：根本原因陈述
+#### 步骤 5.7：根本原因陈述 (Root Cause Statement)
 
-编写一份完整的根本原因陈述，包含**技术版本和通俗语言版本**：
+一份专业的分析报告是运维工程师的核心产出。它不仅要告诉别人“坏在哪里”，更要展示“为什么坏”以及“凭什么这么说”。
 
-**技术版本模板：**
-```
-ROOT CAUSE: [具体技术问题]
+**专业 RCA 报告结构规范：**
 
-MECHANISM: [问题如何表现]
+建议采用以下结构生成最终报告，确保技术深度与可读性并存。
 
-EVIDENCE CHAIN:
-1. [观察] → [来自 crash dump 的证据]
-2. [直接原因] → [来自 bt/log 的证据]
-3. [技术机制] → [来自 struct/dis 的证据]
-4. [设计缺陷] → [来自 code/git 的证据]
-5. [系统性问题] → [来自 process/standards 的证据]
+```text
+# Linux Kernel Crash Root Cause Analysis Report
+# Linux 内核崩溃根因分析报告
 
-CALL CHAIN (with evidence):
-[Function A] → [证据]
-    ↓
-[Function B] → [证据]
-    ↓
-[Crash point] → [证据]
+## 1. Executive Summary (故障摘要)
+--------------------------------------------------------------------------------
+| 故障现象 | [简短描述，如：系统在高负载下发生 Kernel Panic]                |
+| 影响范围 | [受影响的机器数量、业务线]                                     |
+| 根本原因 | [一句话技术定性，如：网卡驱动在异常处理路径中存在内存泄漏]     |
+| 修复建议 | [一句话修复方案，如：补丁修复驱动 error_cleanup 函数]          |
+--------------------------------------------------------------------------------
 
-SYSTEMIC ISSUE: [为什么这成为可能]
+## 2. Technical Analysis (技术分析)
 
-SCOPE: [一次性或反复出现，局部或广泛]
-```
+### 2.1 Failure Mechanism (故障机理)
+[详细描述故障是如何一步步发生的，使用专业术语]
+在网络高丢包率（>30%）场景下，`xyz_driver` 驱动在处理接收包时触发校验失败逻辑。在 `error_cleanup` 函数中，代码直接返回错误码，但**遗漏了释放**此前已分配的 `skb` 缓冲区。
+随着时间推移（约48小时），泄漏对象堆积导致 slab 内存耗尽，最终触发 OOM Killer 误杀关键进程导致系统 Panic。
 
-**通俗语言版本模板 (面向非技术受众)：**
-```
-=== 通俗解释版 ===
+### 2.2 Sequence Diagram (时序图/流程图)
+[使用图表清晰展示调用流与故障点]
 
-问题是什么？
-[用日常语言描述症状，如"系统突然关机"而非"kernel panic"]
+正常流程:           异常流程 (故障复现):
+network_irq         network_irq
+    |                   |
+    v                   v
+alloc_skb()         alloc_skb() ----> [内存分配成功]
+    |                   |
+    v                   v
+validate_pkt()      validate_pkt() -> [返回失败 -EINVAL]
+    |                   |
+    v                   v
+process_pkt()       error_cleanup()
+    |                   |
+    v                   v
+free_skb()          return -EINVAL -> [❌ 缺失 free_skb，内存泄漏!]
 
-为什么会发生？
-[用类比解释，如："就像你去餐厅点菜，服务员记下了你的订单状态（'等待中'），
-但忘记记下你的桌号。当厨房做好菜要送过来时，因为找不到桌号，系统就崩溃了。"]
+### 2.3 Evidence Chain (强证据链)
+[核心证据展示，必须提供截图或命令输出片段，确保证据确凿]
 
-具体是怎么出错的？
-[分步骤，用生活化语言]
-1. 第一步发生了什么：[简单描述 + 证据]
-2. 第二步哪里出错：[简单描述 + 证据]  
-3. 最后导致：[结果]
+* **E1: 内存耗尽事实**
+  * 命令: `sys` + `kmem -i`
+  * 证据: `Free memory: 100MB` (Total 16GB), `Slab: 15GB`
+  * 结论: 系统因 Slab 内存耗尽导致崩溃。
 
-证据在哪里？
-[指出关键证据，解释为什么这些证据支持你的结论]
-• 证据1：[在crash dump的XX位置看到YY] - 这说明[ZZ]
-• 证据2：[在代码的XX位置看到YY] - 这证明[ZZ]
-• 证据3：[在日志的XX位置看到YY] - 这表明[ZZ]
+* **E2: 泄漏源定位**
+  * 命令: `kmem -s`
+  * 证据: `xyz_buffer_cache` 占用 14.8GB，对象数 1亿+。
+  * 结论: 内存泄漏源头为 `xyz_buffer_cache`。
 
-真正的根本原因是什么？
-[系统性问题的通俗解释]
-"不是某个具体的代码错误，而是我们的[流程/规范/工具]缺少了[XX]，
-导致这类错误可能发生而没被发现。"
+* **E3: 代码逻辑缺陷**
+  * 命令: `dis -l xyz_driver_receive`
+  * 证据: 汇编代码显示 `jne error_cleanup` 跳转后，`error_cleanup` 标签处无 `kmem_cache_free` 调用直接 `ret`。
+  * 结论: 驱动代码在错误处理路径确实存在逻辑缺陷。
 
-打个比方：
-[用生活化的类比]
-"这就像一个工厂，某个工位的工人忘记做质检步骤，但因为没有检查清单，
-也没有下一道工序来复查，所以次品就这样流出去了。"
+* **E4: 触发条件确认**
+  * 命令: `log | grep "validation failure"`
+  * 证据: 日志大量刷屏 `validation failure`，频率约 300次/秒。
+  * 结论: 高丢包环境触发了该错误路径的频繁执行。
 
-修复方案：
-• 立即修复：[解决这一个问题]
-• 长远方案：[防止这类问题] - 就像给工厂建立质检流程
-```
+## 3. Root Cause (根本原因)
+* **Direct Cause (直接原因)**: `xyz_driver` v2.3 版本代码在 `error_cleanup` 路径遗漏内存释放操作。
+* **Root Cause (根本原因)**: 驱动开发流程缺乏对异常分支（Exception Path）的资源泄漏检测机制；CI/CD 流程未覆盖高丢包场景的压力测试。
 
-**完整示例：**
+## 4. Recommendations (改进建议)
 
-**技术版本 (Technical Version):**
-```
-ROOT CAUSE: xyz_driver error path leaks allocated buffers
-(根本原因：xyz_driver 错误路径泄漏已分配的缓冲区)
+| 类型 | 建议措施 | 预计完成时间 |
+|------|----------|--------------|
+| **短期** | 应用 Hotfix 补丁，在 `error_cleanup` 中添加 `kfree` | 立即 |
+| **长期** | 在 CI 流程引入 `kmemleak` 扫描工具 | Q3 |
+| **长期** | 增加驱动异常路径的代码走查 Checklist | Q3 |
 
-MECHANISM: Driver allocates buffer in interrupt context, processes packet,
-but on validation errors returns without freeing buffer. Under 30% packet 
-loss rate, leak accumulates 30K buffers/sec, exhausting memory in 48 hours.
-(机制：驱动在中断上下文分配缓冲区，处理数据包，但在验证错误时未释放缓冲区即返回。在 30% 丢包率下，每秒泄漏 3万个缓冲区，48小时内耗尽内存。)
-
-EVIDENCE CHAIN:
-1. [System panic with OOM] → sys shows "Out of memory: Kill process"
-2. [Memory exhaustion] → kmem -i shows 15.9GB/16GB used, 100MB free
-3. [Slab leak] → kmem -s shows xyz_buffer_cache: 100M objects, 4.2GB
-4. [Allocation source] → foreach bt shows allocations in xyz_driver_receive
-5. [Missing free] → dis -l xyz_driver_receive shows error_cleanup returns without kmem_cache_free
-6. [High error rate] → log shows 30% packet validation failures
-7. [Timeline] → dmesg shows leak started 48h ago, correlates with driver load
-8. [No detection] → Project has no leak detection in CI, no slab monitoring
-
-CALL CHAIN (with evidence):
-network_interrupt
-    ↓ [证据: bt -a shows CPU0 in IRQ context]
-xyz_driver_receive+0x12
-    ↓ [证据: dis -l shows kmem_cache_alloc call at offset 0x12]
-kmem_cache_alloc
-    ↓ [证据: struct xyz_buffer shows allocated object]
-validate_packet
-    ↓ [证据: returns -EINVAL, shown in log]
-error_cleanup+0x45
-    ↓ [证据: dis -l shows direct ret, no free call]
-ret (LEAK!) ← [证据: buffer never freed, ref in kmem -s]
-
-SYSTEMIC ISSUE: Driver error paths lack resource cleanup discipline; 
-no automated leak detection; no production monitoring for slab growth
-(系统性问题：驱动错误路径缺乏资源清理纪律；无自动化泄漏检测；生产环境无 Slab 增长监控)
-
-SCOPE: All systems running xyz_driver v2.3.1-2.3.5 under packet loss >10%
 ```
 
-**通俗语言版本 (Plain Language Version):**
-```
-=== 通俗解释版 ===
-
-问题是什么？
-系统在运行48小时后内存耗尽并崩溃重启。
-
-为什么会发生？
-打个比方：网络驱动就像一个快递站，每收到一个包裹，就要准备一个箱子
-来装它。正常情况下，包裹处理完了，箱子会回收。但是当包裹损坏（数据
-验证失败）时，程序员写的代码忘记了回收箱子这一步，直接就结束了。
-
-在30%的包裹都损坏的环境下（网络质量差），每秒要泄漏30,000个箱子。
-48小时后，所有箱子（内存）都用光了，系统就崩了。
-
-具体是怎么出错的？
-1. 网络包到达，驱动分配一块内存（"箱子"）来处理
-   [证据：crash dump显示xyz_driver_receive函数分配了内存]
-   
-2. 驱动检查包的数据，发现是坏包（30%都是坏的）
-   [证据：日志显示30% packet validation failures]
-   
-3. 驱动设置错误状态，准备返回
-   [证据：代码反汇编显示设置了错误码]
-   
-4. ❌ BUG在这里：驱动直接返回了，忘记释放之前分配的内存！
-   [证据：代码显示error_cleanup路径没有调用free函数]
-   
-5. 这样的泄漏每秒发生30,000次，48小时累积了1亿个泄漏对象
-   [证据：kmem -s显示xyz_buffer_cache有100M个对象，占用4.2GB]
-   
-6. 最终内存耗尽，系统崩溃
-   [证据：sys显示OOM killer被触发]
-
-证据在哪里？
-我们有完整的证据链证明这个判断：
-
-• 证据1：崩溃现场的内存统计 - 显示几乎所有内存都被xyz_buffer占用
-  [在crash dump中用 'kmem -s' 命令看到的]
-  
-• 证据2：驱动代码的反汇编 - 证明error路径确实没有free调用
-  [用 'dis -l xyz_driver_receive' 命令看到的汇编代码]
-  
-• 证据3：系统日志 - 显示30%的包验证失败
-  [用 'log' 命令看到的内核日志]
-  
-• 证据4：时间线 - 从驱动加载到崩溃正好48小时
-  [日志时间戳显示的]
-
-真正的根本原因是什么？
-表面上看是"代码少写了一行free"，但真正的根因是：
-
-我们的开发流程缺少对错误处理路径的系统性检查。具体来说：
-- 没有要求错误路径必须有资源清理checklist
-- 没有自动化工具检测内存泄漏
-- 生产环境没有监控内存使用异常
-
-所以这类错误能够：
-1. 被写进代码
-2. 通过代码审查
-3. 通过测试（因为测试场景没有高错误率）
-4. 部署到生产环境
-5. 运行48小时才暴露
-
-打个比方：
-就像一家餐厅，正常流程是：接单→做菜→上菜→收盘子。但当客人临时
-取消订单时（错误场景），服务员只记得取消厨房的菜，忘记收回已经
-摆好的盘子。
-
-如果偶尔有人取消，问题不大。但如果30%的客人都取消（高错误率），
-一天下来盘子全用光，餐厅就没法营业了（系统崩溃）。
-
-真正的问题不是某个服务员忘记收盘子，而是餐厅没有"异常情况处理
-流程"，也没有"盘子库存监控"，导致这类错误可以发生并持续。
-
-修复方案：
-• 立即修复：在error_cleanup代码路径添加kmem_cache_free调用
-  [就像提醒那个服务员要记得收盘子]
-  
-• 长远方案：
-  1. 建立错误路径资源清理checklist（所有驱动必须遵守）
-  2. 在CI中添加内存泄漏检测工具
-  3. 在生产环境添加slab监控告警
-  [就像给餐厅建立"异常处理SOP"和"库存监控系统"]
-  
-这样不仅修复了这一个bug，还能防止将来出现类似的内存泄漏问题。
-```
-
-**分析中的使用：**
-
-始终提供**两个**版本：
-- 技术版本给工程团队 (详细、精确)
-- 通俗语言版本给管理层/利益相关者 (易懂、可执行)
-
-两个版本必须基于**同一条**证据链 —— 只是解释方式不同。
+**编写建议：**
+1.  **图表胜千言**：对于复杂的锁竞争或调用关系，务必使用 ASCII 流程图。
+2.  **证据说话**：不要说“我觉得是内存泄漏”，要说“`kmem -s` 显示该 slab 占用 90% 内存，且 `dis` 确认无释放逻辑”。
+3.  **通俗易懂**：在摘要部分使用管理层能听懂的语言，在分析部分使用工程师通用的术语。
 
 #### 步骤 5.8：最终验证问题
 
