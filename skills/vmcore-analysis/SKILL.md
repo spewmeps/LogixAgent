@@ -225,16 +225,26 @@ crash> rd -S <address>      # [进阶] 读取 Slab 对象内容，验证数据�
 
 **寻找：** 内存耗尽、Slab 泄漏、OOM (内存溢出) 条件、Slab 数据损坏 (Corruption)
 
-### 第三阶段 B：锁分析
+### 第三阶段 B：死锁分析最小必要步骤
 
-```
-crash> bt -l                # [关键] 带有源代码行号的回溯
-crash> task -R state <pid>  # [关键] 检查进程状态位 (如 UNINTERRUPTIBLE)
-crash> waitq                # 等待队列检查
-crash> ps -l                # 带有锁状态的进程
+```bash
+# 1. 找UN状态进程
+crash> ps | grep UN
+
+# 2. 查看调用栈（看在等什么锁）
+crash> bt <PID>
+
+# 3. 查看锁的持有者
+crash> struct mutex <锁地址>
+# 看owner字段
+
+# 4. 查看持有者的栈（看它在等什么）
+crash> bt <持有者PID>
+
+# 5. 重复3-4，直到形成环 → 确认死锁
 ```
 
-**寻找：** 循环等待条件、持有的锁、ABBA 死锁、D 状态进程
+**就这5步**，如果形成循环依赖就是死锁。
 
 ### 第三阶段 C：中断/定时器分析
 
