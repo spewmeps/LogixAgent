@@ -1,5 +1,5 @@
 ---
-name: os-crash-analyzer
+name: vmcore-analysis
 description: 通过 crash 工具深度分析 Linux vmcore 文件，解决各类操作系统级疑难故障。核心能力包括：定位 Kernel Panic 和系统意外崩溃的根本原因；以及通过分析内存转储快照，诊断系统卡死、死锁、资源耗尽及性能异常等问题。提供从环境检查到根因报告生成的全流程指导。
 ---
 
