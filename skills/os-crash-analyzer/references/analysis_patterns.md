@@ -1,396 +1,396 @@
-# Common Crash Analysis Patterns
+# 常见 Crash 分析模式 (Common Crash Analysis Patterns)
 
-Signature patterns for recognizing and diagnosing common kernel failures.
+用于识别和诊断常见内核故障的特征模式。
 
-## Panic Types
+## Panic 类型
 
-### NULL Pointer Dereference
+### 空指针解引用 (NULL Pointer Dereference)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 BUG: unable to handle kernel NULL pointer dereference at 0000000000000000
 IP: [<ffffffff81234567>] function_name+0x12/0x34
 ```
 
-**Backtrace pattern:**
-- Crash in a function attempting to access structure member
-- Address near zero (0x0, 0x8, 0x10, etc.)
+**回溯模式 (Backtrace pattern):**
+- Crash 发生在尝试访问结构体成员的函数中
+- 地址接近零 (0x0, 0x8, 0x10 等)
 
-**Investigation:**
-1. `bt` - See which pointer was NULL
-2. `dis -l <function>` - See the dereference
-3. Look for missed NULL checks in code path
+**调查方法 (Investigation):**
+1. `bt` - 查看哪个指针为 NULL
+2. `dis -l <function>` - 查看解引用位置
+3. 检查代码路径中是否缺少 NULL 检查
 
-**Common causes:**
-- Uninitialized pointer
-- Race condition freeing structure
-- Failed allocation not checked
+**常见原因 (Common causes):**
+- 未初始化的指针
+- 释放结构体时的竞争条件 (Race condition)
+- 未检查分配失败的情况
 
 ---
 
-### General Protection Fault
+### 一般保护错误 (General Protection Fault)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 general protection fault: 0000 [#1] SMP
 IP: [<ffffffff81abcdef>] function_name+0x45/0x67
 ```
 
-**Characteristics:**
-- Invalid memory access (bad pointer, corrupted structure)
-- Often shows non-canonical address (0x6b6b6b6b, 0x5a5a5a5a patterns)
+**特征 (Characteristics):**
+- 无效的内存访问 (坏指针，损坏的结构体)
+- 通常显示非规范地址 (0x6b6b6b6b, 0x5a5a5a5a 模式)
 
-**Investigation:**
-1. Check address in fault - common patterns:
-   - `0x6b6b6b6b` - SLAB_POISON (use-after-free)
-   - `0x5a5a5a5a` - kmalloc redzone (buffer overflow)
-2. `struct <type> <bad_address>` - Try to interpret structure
-3. Look for recent memory operations in backtrace
+**调查方法 (Investigation):**
+1. 检查故障地址 - 常见模式：
+   - `0x6b6b6b6b` - SLAB_POISON (释放后使用 use-after-free)
+   - `0x5a5a5a5a` - kmalloc redzone (缓冲区溢出 buffer overflow)
+2. `struct <type> <bad_address>` - 尝试解析结构体
+3. 在回溯中查找最近的内存操作
 
 ---
 
-### Stack Overflow
+### 栈溢出 (Stack Overflow)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 stack overflow detected
 Double fault
 ```
 
-**Backtrace pattern:**
-- Very deep call stack (100+ frames)
-- Recursive function calls
-- Large local variables
+**回溯模式 (Backtrace pattern):**
+- 非常深的调用栈 (100+ 帧)
+- 递归函数调用
+- 巨大的局部变量
 
-**Investigation:**
-1. `bt` - Count depth
-2. Look for repeated function names (recursion)
-3. Check for unbounded loops
+**调查方法 (Investigation):**
+1. `bt` - 统计深度
+2. 查找重复的函数名 (递归)
+3. 检查无界循环
 
 ---
 
-### Out Of Memory (OOM)
+### 内存不足 (Out Of Memory - OOM)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 Out of memory: Kill process <pid> (<name>) score <X> or sacrifice child
 Killed process <pid> (<name>) total-vm:<X>kB, anon-rss:<Y>kB, file-rss:<Z>kB
 ```
 
-**Log patterns:**
-- Multiple OOM killer invocations
-- Memory allocation failures
-- List of processes with memory scores
+**日志模式 (Log patterns):**
+- 多次 OOM killer 调用
+- 内存分配失败
+- 带有内存分数的进程列表
 
-**Investigation:**
-1. `kmem -i` - Check memory distribution
-2. `ps` - Sort by memory usage
-3. `vm <pid>` - Examine top consumers
-4. `kmem -s` - Check for slab leaks
+**调查方法 (Investigation):**
+1. `kmem -i` - 检查内存分布
+2. `ps` - 按内存使用量排序
+3. `vm <pid>` - 检查最大的消费者
+4. `kmem -s` - 检查 slab 泄漏
 
-**Common causes:**
-- Memory leak (application or kernel)
-- Undersized system for workload
-- Memory limit (cgroup) too low
+**常见原因 (Common causes):**
+- 内存泄漏 (应用程序或内核)
+- 系统对于负载来说配置过低
+- 内存限制 (cgroup) 太低
 
 ---
 
-### Deadlock
+### 死锁 (Deadlock)
 
-**Signature:**
-- System hang
-- Multiple processes in D (UN) state
-- Watchdog timeout
+**特征签名 (Signature):**
+- 系统挂起 (System hang)
+- 多个进程处于 D (UN) 状态
+- Watchdog 超时
 
-**Log patterns:**
+**日志模式 (Log patterns):**
 ```
 INFO: task <name>:<pid> blocked for more than 120 seconds
 ```
 
-**Investigation:**
-1. `ps | grep UN` - Find stuck processes
-2. `foreach bt` - Get all backtraces
-3. `bt -l <pid>` - Check locks held
-4. Look for circular wait:
-   - Process A waiting for lock held by B
-   - Process B waiting for lock held by A
+**调查方法 (Investigation):**
+1. `ps | grep UN` - 查找卡住的进程
+2. `foreach bt` - 获取所有回溯
+3. `bt -l <pid>` - 检查持有的锁
+4. 查找循环等待 (Circular wait):
+   - 进程 A 等待 B 持有的锁
+   - 进程 B 等待 A 持有的锁
 
-**Pattern recognition:**
+**模式识别 (Pattern recognition):**
 ```bash
-# Find ABBA deadlock
+# 查找 ABBA 死锁
 foreach bt | grep -A10 "mutex_lock\|down\|spin_lock"
 ```
 
 ---
 
-### Soft Lockup
+### 软锁定 (Soft Lockup)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 BUG: soft lockup - CPU#X stuck for Xs!
 ```
 
-**Characteristics:**
-- CPU spinning without yielding
-- Interrupts disabled too long
-- Infinite loop in kernel
+**特征 (Characteristics):**
+- CPU 空转且不让出 (spinning without yielding)
+- 中断被禁用太久
+- 内核中的死循环
 
-**Investigation:**
-1. `bt -a` - Check all CPUs
-2. `dis -l <function>` - Examine spinning function
-3. Look for:
-   - while(1) loops without breaks
-   - Tight polling loops
-   - Lock held indefinitely
+**调查方法 (Investigation):**
+1. `bt -a` - 检查所有 CPU
+2. `dis -l <function>` - 检查空转的函数
+3. 查找：
+   - 没有 break 的 while(1) 循环
+   - 紧密的轮询循环 (Tight polling loops)
+   - 无限期持有的锁
 
 ---
 
-### Hard Lockup
+### 硬锁定 (Hard Lockup)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 NMI watchdog: BUG: hard lockup - CPU#X stuck for Xs!
 ```
 
-**More severe than soft lockup:**
-- CPU not responding to interrupts
-- Often hardware issue or critical kernel bug
+**比软锁定更严重:**
+- CPU 不响应中断
+- 通常是硬件问题或严重的内核 Bug
 
 ---
 
-## Memory Corruption Patterns
+## 内存损坏模式 (Memory Corruption Patterns)
 
-### Slab Corruption
+### Slab 损坏 (Slab Corruption)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 slab error in <function>: cache `<cache_name>'
 Freepointer corrupt
 ```
 
-**Investigation:**
-1. `kmem -s <cache_name>` - Examine slab cache
-2. Look for use-after-free in backtrace
-3. Check for buffer overflows
+**调查方法 (Investigation):**
+1. `kmem -s <cache_name>` - 检查 slab 缓存
+2. 在回溯中查找 use-after-free
+3. 检查缓冲区溢出
 
 ---
 
-### Page Table Corruption
+### 页表损坏 (Page Table Corruption)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 BUG: Bad page map
 BUG: Bad page state
 ```
 
-**Indicates:**
-- Kernel page table corrupted
-- Hardware memory error possible
+**表明 (Indicates):**
+- 内核页表已损坏
+- 可能是硬件内存错误
 
-**Investigation:**
-1. `kmem -p` - Check page info
-2. Review recent memory operations
-3. Consider hardware diagnostics
+**调查方法 (Investigation):**
+1. `kmem -p` - 检查页信息
+2. 审查最近的内存操作
+3. 考虑硬件诊断
 
 ---
 
-## Driver Issues
+## 驱动程序问题 (Driver Issues)
 
-### Device Timeout
+### 设备超时 (Device Timeout)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 <driver>: timeout waiting for <operation>
 ```
 
-**Common in:**
-- Storage drivers (SCSI, SATA, NVMe)
-- Network drivers
+**常见于 (Common in):**
+- 存储驱动 (SCSI, SATA, NVMe)
+- 网络驱动
 
-**Investigation:**
-1. `dev` - Check device state
-2. `irq` - Verify interrupt delivery
-3. Look for hardware errors in log
+**调查方法 (Investigation):**
+1. `dev` - 检查设备状态
+2. `irq` - 验证中断传递
+3. 在日志中查找硬件错误
 
 ---
 
-### DMA Errors
+### DMA 错误 (DMA Errors)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 DMA: Out of SW-IOMMU space
 DMAR: DRHD: handling fault status
 ```
 
-**Investigation:**
-1. Check hardware health
-2. Review driver initialization
-3. Verify IOMMU configuration
+**调查方法 (Investigation):**
+1. 检查硬件健康状况
+2. 审查驱动程序初始化
+3. 验证 IOMMU 配置
 
 ---
 
-## File System Issues
+## 文件系统问题 (File System Issues)
 
-### Filesystem Corruption Detected
+### 检测到文件系统损坏 (Filesystem Corruption Detected)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 EXT4-fs error: <details>
 XFS: Internal error <details>
 ```
 
-**Investigation:**
-1. `mount` - Check filesystem status
-2. `files` - Look for problematic file operations
-3. Review recent disk operations
+**调查方法 (Investigation):**
+1. `mount` - 检查文件系统状态
+2. `files` - 查找有问题的文件操作
+3. 审查最近的磁盘操作
 
 ---
 
-### VFS Deadlock
+### VFS 死锁 (VFS Deadlock)
 
-**Signature:**
-- Processes stuck in D state
-- Backtrace shows VFS functions
+**特征签名 (Signature):**
+- 进程卡在 D 状态
+- 回溯显示 VFS 函数
 
-**Common patterns:**
+**常见模式 (Common patterns):**
 ```
 do_sys_open
 vfs_read
 vfs_write
 ```
 
-**Investigation:**
-1. Check filesystem mount options
-2. Review NFS/network filesystem issues
-3. Look for lock ordering violations
+**调查方法 (Investigation):**
+1. 检查文件系统挂载选项
+2. 审查 NFS/网络文件系统问题
+3. 查找锁顺序违规
 
 ---
 
-## Network Issues
+## 网络问题 (Network Issues)
 
 ### RCU Stall
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 INFO: rcu_sched self-detected stall on CPU
 ```
 
-**Characteristics:**
-- CPU hasn't completed RCU grace period
-- Often network stack related
+**特征 (Characteristics):**
+- CPU 未完成 RCU 宽限期 (grace period)
+- 通常与网络栈有关
 
-**Investigation:**
-1. `bt -a` - Check CPU activity
-2. Look for network driver in backtrace
-3. Check for excessive packet processing
+**调查方法 (Investigation):**
+1. `bt -a` - 检查 CPU 活动
+2. 在回溯中查找网络驱动
+3. 检查是否存在过多的数据包处理
 
 ---
 
-### Network Stack Overflow
+### 网络栈溢出 (Network Stack Overflow)
 
-**Signature:**
+**特征签名 (Signature):**
 ```
 net_ratelimit: <X> callbacks suppressed
 ```
 
-**Indicates:**
-- Excessive network activity
-- Possible attack or misconfiguration
+**表明 (Indicates):**
+- 过度的网络活动
+- 可能的攻击或错误配置
 
 ---
 
-## Workload-Specific Patterns
+## 负载特定模式 (Workload-Specific Patterns)
 
-### Database Server Crashes
+### 数据库服务器崩溃 (Database Server Crashes)
 
-**Common signatures:**
-- High memory pressure (OOM)
-- Many processes in D state (IO wait)
-- Filesystem deadlocks
+**常见签名 (Common signatures):**
+- 高内存压力 (OOM)
+- 许多进程处于 D 状态 (IO 等待)
+- 文件系统死锁
 
-**Investigation focus:**
-- `kmem -i` - Memory
-- `files` - Open descriptors
-- `bt -a` - IO operations
-
----
-
-### Web Server Crashes
-
-**Common signatures:**
-- Socket exhaustion
-- Thread/process limit reached
-- Network driver issues
-
-**Investigation focus:**
-- `ps` - Process count
-- Network stack traces
-- Memory allocation failures
+**调查重点 (Investigation focus):**
+- `kmem -i` - 内存
+- `files` - 打开的描述符
+- `bt -a` - IO 操作
 
 ---
 
-### Container/Virtualization Issues
+### Web 服务器崩溃 (Web Server Crashes)
 
-**Common signatures:**
+**常见签名 (Common signatures):**
+- Socket 耗尽
+- 线程/进程限制达到上限
+- 网络驱动问题
+
+**调查重点 (Investigation focus):**
+- `ps` - 进程计数
+- 网络堆栈跟踪
+- 内存分配失败
+
+---
+
+### 容器/虚拟化问题 (Container/Virtualization Issues)
+
+**常见签名 (Common signatures):**
 - Cgroup OOM
-- Namespace-related panics
-- Virtio driver timeouts
+- 命名空间相关的 panics
+- Virtio 驱动超时
 
-**Investigation focus:**
-- Cgroup memory limits
-- Virtual device states
-- Host-guest interaction
+**调查重点 (Investigation focus):**
+- Cgroup 内存限制
+- 虚拟设备状态
+- 主机-客体交互
 
 ---
 
-## Quick Pattern Matching
+## 快速模式匹配 (Quick Pattern Matching)
 
-Use these greps on log output to quickly identify issues:
+在日志输出上使用这些 grep 命令快速识别问题：
 
 ```bash
-# Panic indicators
+# Panic 指标
 log | grep -i "panic\|oops\|bug:\|kernel bug"
 
-# Memory issues
+# 内存问题
 log | grep -i "out of memory\|oom\|allocation fail"
 
-# Deadlock indicators
+# 死锁指标
 log | grep -i "blocked for\|hung task\|deadlock"
 
-# Hardware errors
+# 硬件错误
 log | grep -i "hardware error\|mce\|machine check"
 
-# Driver issues
+# 驱动问题
 log | grep -i "timeout\|firmware\|driver.*fail"
 
-# Filesystem problems
+# 文件系统问题
 log | grep -i "ext4-fs\|xfs\|io error"
 ```
 
 ---
 
-## Pattern Analysis Workflow
+## 模式分析工作流 (Pattern Analysis Workflow)
 
-For any crash, follow this pattern recognition workflow:
+对于任何 crash，遵循此模式识别工作流：
 
-1. **Classify the panic type** (NULL deref, GPF, OOM, etc.)
-2. **Identify the subsystem** (MM, FS, NET, drivers)
-3. **Look for known signatures** (patterns listed above)
-4. **Apply subsystem-specific investigation** (relevant commands)
-5. **Check for hardware issues** (if software causes unclear)
+1. **分类 Panic 类型** (NULL deref, GPF, OOM 等)
+2. **识别子系统** (MM, FS, NET, drivers)
+3. **查找已知签名** (上面列出的模式)
+4. **应用子系统特定的调查** (相关命令)
+5. **检查硬件问题** (如果软件原因不明确)
 
-## Common False Leads
+## 常见的错误线索 (Common False Leads)
 
-Be aware of these misleading patterns:
+注意这些误导性的模式：
 
-1. **Panic in panic handler:** Secondary crash while handling first panic
-   - Look earlier in backtrace for original crash
+1. **Panic 处理程序中的 Panic:** 处理第一个 panic 时的二次崩溃
+   - 在回溯中向前查找原始崩溃
    
-2. **Generic allocation failure:** May be symptom, not cause
-   - Find where memory was exhausted
+2. **通用分配失败:** 可能是症状，而不是原因
+   - 查找内存耗尽的地方
    
-3. **Timeout messages:** Often consequence of deadlock elsewhere
-   - Find what blocked the operation
+3. **超时消息:** 通常是其他地方死锁的后果
+   - 查找是什么阻塞了操作
 
-4. **Workqueue stuck:** Usually waiting for something else
-   - Find what the workqueue is waiting for
+4. **Workqueue 卡住:** 通常在等待其他东西
+   - 查找 workqueue 在等待什么

@@ -1,221 +1,221 @@
-# Crash Command Reference
+# Crash 命令参考手册
 
-Complete reference for crash utility commands used in kernel analysis.
+用于内核分析的 crash 工具命令完整参考。
 
-## Core Analysis Commands
+## 核心分析命令
 
 ### sys
-**Purpose:** Display system information and panic details
+**用途:** 显示系统信息和 Panic 详情
 
-**Usage:** `sys`
+**用法:** `sys`
 
-**Output includes:**
-- Kernel version and release
-- Machine architecture
-- Panic string (if available)
-- System uptime
-- Crash time
-- Number of CPUs
+**输出包含:**
+- 内核版本和发布号
+- 机器架构
+- Panic 字符串（如果有）
+- 系统正常运行时间 (Uptime)
+- 崩溃时间
+- CPU 数量
 
-**When to use:** Always run first to establish baseline
+**何时使用:** 总是首先运行此命令以建立基准
 
 ---
 
 ### log
-**Purpose:** Display kernel ring buffer (dmesg output)
+**用途:** 显示内核环形缓冲区 (dmesg 输出)
 
-**Usage:** 
-- `log` - Full log
-- `log | tail -100` - Last 100 lines (recommended)
-- `log | grep ERROR` - Filter for errors
+**用法:** 
+- `log` - 完整日志
+- `log | tail -100` - 最后 100 行（推荐）
+- `log | grep ERROR` - 过滤错误信息
 
-**Look for:**
-- Panic messages
-- Oops reports
-- Hardware errors
-- Driver failures
-- Memory corruption warnings
+**查找内容:**
+- Panic 消息
+- Oops 报告
+- 硬件错误
+- 驱动程序故障
+- 内存损坏警告
 
-**When to use:** First command after sys
+**何时使用:** 在 sys 之后首先运行的命令
 
 ---
 
 ### bt (backtrace)
-**Purpose:** Display call stack of current/specified task
+**用途:** 显示当前/指定任务的调用栈
 
-**Usage:**
-- `bt` - Current task backtrace
-- `bt <pid>` - Specific process backtrace
-- `bt -a` - All CPU backtraces
-- `bt -l` - Include locks held
-- `bt -t` - Include timestamps
-- `bt -f` - Full symbol information
+**用法:**
+- `bt` - 当前任务的回溯
+- `bt <pid>` - 特定进程的回溯
+- `bt -a` - 所有 CPU 的回溯
+- `bt -l` - 包含持有的锁
+- `bt -t` - 包含时间戳
+- `bt -f` - 完整的符号信息
 
-**Interpretation:**
-- Top of stack shows where crash occurred
-- Follow call chain downward
-- Look for known problematic functions
+**解读:**
+- 栈顶显示崩溃发生的位置
+- 向下追踪调用链
+- 寻找已知的问题函数
 
-**When to use:** Essential for understanding crash context
+**何时使用:** 理解崩溃上下文必不可少
 
 ---
 
 ### ps
-**Purpose:** Display process status
+**用途:** 显示进程状态
 
-**Usage:**
-- `ps` - All processes
-- `ps -l` - Include lock information
-- `ps -u` - User/kernel times
-- `ps -p` - Per-CPU breakdown
+**用法:**
+- `ps` - 所有进程
+- `ps -l` - 包含锁信息
+- `ps -u` - 用户/内核时间
+- `ps -p` - 每 CPU 分解
 
-**Key states:**
-- `RU` - Running
-- `IN` - Interruptible sleep
-- `UN` - Uninterruptible sleep (often stuck)
-- `ST` - Stopped
-- `ZO` - Zombie
-- `DE` - Dead
+**关键状态:**
+- `RU` - 运行中 (Running)
+- `IN` - 可中断睡眠 (Interruptible sleep)
+- `UN` - 不可中断睡眠 (Uninterruptible sleep，通常是卡死)
+- `ST` - 已停止 (Stopped)
+- `ZO` - 僵尸进程 (Zombie)
+- `DE` - 已死亡 (Dead)
 
-**When to use:** Finding stuck or problematic processes
+**何时使用:** 查找卡死或有问题的进程
 
 ---
 
-## Memory Analysis Commands
+## 内存分析命令
 
 ### kmem
-**Purpose:** Kernel memory analysis
+**用途:** 内核内存分析
 
-**Common usages:**
-- `kmem -i` - Memory usage summary (start here)
-- `kmem -s` - Slab allocator statistics
-- `kmem -s <cache>` - Specific cache detail
-- `kmem -p` - Memory pages info
-- `kmem -v` - Virtual memory context
+**常见用法:**
+- `kmem -i` - 内存使用摘要（从这里开始）
+- `kmem -s` - Slab 分配器统计
+- `kmem -s <cache>` - 特定缓存详情
+- `kmem -p` - 内存页信息
+- `kmem -v` - 虚拟内存上下文
 
-**Interpreting kmem -i:**
-- Total memory vs used
-- Slab usage percentage
-- Page cache size
-- Free memory at crash time
+**解读 kmem -i:**
+- 总内存 vs 已用内存
+- Slab 使用百分比
+- 页缓存大小
+- 崩溃时的空闲内存
 
-**Finding leaks:**
+**查找泄漏:**
 ```bash
-kmem -s | grep -v "  0  "  # Non-empty caches
-kmem -s | sort -k6 -n -r   # Sort by total size
+kmem -s | grep -v "  0  "  # 非空缓存
+kmem -s | sort -k6 -n -r   # 按总大小排序
 ```
 
-**When to use:** Any memory-related issue
+**何时使用:** 任何与内存相关的问题
 
 ---
 
 ### vm
-**Purpose:** Virtual memory information for processes
+**用途:** 进程的虚拟内存信息
 
-**Usage:**
-- `vm` - Current task VM info
-- `vm <pid>` - Specific process VM
-- `vm -p` - Physical address mapping
-- `vm -m` - Memory map details
+**用法:**
+- `vm` - 当前任务的 VM 信息
+- `vm <pid>` - 特定进程的 VM
+- `vm -p` - 物理地址映射
+- `vm -m` - 内存映射详情
 
-**When to use:** Process memory issues, segfaults
+**何时使用:** 进程内存问题，段错误 (segfaults)
 
 ---
 
 ### free
-**Purpose:** Display memory availability
+**用途:** 显示内存可用性
 
-**Usage:** `free`
+**用法:** `free`
 
-**Shows:** Total, used, free memory in system view
+**显示:** 系统视图中的总内存、已用内存、空闲内存
 
 ---
 
-## Lock and Wait Analysis
+## 锁和等待分析
 
 ### waitq
-**Purpose:** Display wait queue information
+**用途:** 显示等待队列信息
 
-**Usage:**
-- `waitq <address>` - Specific wait queue
-- Typically used after seeing tasks in UN state
+**用法:**
+- `waitq <address>` - 特定等待队列
+- 通常在看到任务处于 UN 状态后使用
 
-**When to use:** Deadlock investigation
+**何时使用:** 死锁调查
 
 ---
 
-## Interrupt and Timer Commands
+## 中断和定时器命令
 
 ### irq
-**Purpose:** Display interrupt statistics
+**用途:** 显示中断统计信息
 
-**Usage:** `irq`
+**用法:** `irq`
 
-**Shows:**
-- IRQ number
-- Count
-- Handler function
-- Device name
+**显示:**
+- IRQ 编号
+- 计数
+- 处理函数
+- 设备名称
 
-**Look for:** Unusually high counts indicating storms
+**查找内容:** 指示中断风暴的异常高计数
 
 ---
 
 ### timer
-**Purpose:** Display kernel timer information
+**用途:** 显示内核定时器信息
 
-**Usage:** `timer`
+**用法:** `timer`
 
-**Shows active timers and their handlers
+**显示:** 活动定时器及其处理程序
 
-**When to use:** Timer-related hangs or watchdog triggers
+**何时使用:** 定时器相关的挂起或看门狗触发
 
 ---
 
-## File System Commands
+## 文件系统命令
 
 ### files
-**Purpose:** Display open file descriptors
+**用途:** 显示打开的文件描述符
 
-**Usage:**
-- `files` - Current task files
-- `files <pid>` - Specific process files
+**用法:**
+- `files` - 当前任务的文件
+- `files <pid>` - 特定进程的文件
 
-**When to use:** File descriptor leaks, filesystem issues
+**何时使用:** 文件描述符泄漏，文件系统问题
 
 ---
 
 ### mount
-**Purpose:** Display mounted filesystems
+**用途:** 显示挂载的文件系统
 
-**Usage:** `mount`
+**用法:** `mount`
 
-**Shows:** Mount points, filesystem types, devices
+**显示:** 挂载点，文件系统类型，设备
 
 ---
 
 ### dev
-**Purpose:** Display device information
+**用途:** 显示设备信息
 
-**Usage:** `dev`
+**用法:** `dev`
 
 ---
 
-## Structure Inspection
+## 结构体检查
 
 ### struct
-**Purpose:** Display kernel structure contents
+**用途:** 显示内核结构体内容
 
-**Usage:**
+**用法:**
 - `struct <type> <address>`
 - `struct task_struct <address>`
 - `struct file <address>`
 
-**Tips:**
-- Get addresses from other commands (ps, bt, etc.)
-- Use with | grep to filter fields
+**技巧:**
+- 从其他命令（ps, bt 等）获取地址
+- 配合 | grep 过滤字段
 
-**Example:**
+**示例:**
 ```bash
 struct task_struct ffff8800345fb040
 struct file ffff88003456cd00
@@ -224,26 +224,26 @@ struct file ffff88003456cd00
 ---
 
 ### union
-**Purpose:** Display union contents
+**用途:** 显示联合体 (union) 内容
 
-**Usage:** Same as struct but for union types
+**用法:** 与 struct 相同，但用于联合体类型
 
 ---
 
-## Disassembly Commands
+## 反汇编命令
 
 ### dis
-**Purpose:** Disassemble functions or addresses
+**用途:** 反汇编函数或地址
 
-**Usage:**
-- `dis <function_name>` - Disassemble function
-- `dis -l <function_name>` - Include source lines
-- `dis <address>` - Disassemble at address
-- `dis -r <address>` - Reverse disassemble
+**用法:**
+- `dis <function_name>` - 反汇编函数
+- `dis -l <function_name>` - 包含源代码行
+- `dis <address>` - 在地址处反汇编
+- `dis -r <address>` - 反向反汇编
 
-**When to use:** Understanding exact crash point
+**何时使用:** 理解确切的崩溃点
 
-**Example:**
+**示例:**
 ```bash
 dis -l panic
 dis -l 0xffffffff81234567
@@ -251,94 +251,94 @@ dis -l 0xffffffff81234567
 
 ---
 
-## Memory Reading Commands
+## 内存读取命令
 
 ### rd (read)
-**Purpose:** Read memory contents
+**用途:** 读取内存内容
 
-**Usage:**
-- `rd <address>` - Read one word
-- `rd <address> <count>` - Read multiple
-- `rd -8 <address>` - Read 8-byte words
-- `rd -4 <address>` - Read 4-byte words
+**用法:**
+- `rd <address>` - 读取一个字
+- `rd <address> <count>` - 读取多个
+- `rd -8 <address>` - 读取 8 字节字
+- `rd -4 <address>` - 读取 4 字节字
 
 ---
 
 ### px (print hex)
-**Purpose:** Print memory in hex format
+**用途:** 以十六进制格式打印内存
 
-**Usage:** `px <address> <count>`
+**用法:** `px <address> <count>`
 
-**Better formatted than rd for raw memory dumps**
+**比 rd 更适合原始内存转储的格式化显示**
 
 ---
 
-## Advanced Commands
+## 高级命令
 
 ### foreach
-**Purpose:** Execute command for each element
+**用途:** 对每个元素执行命令
 
-**Usage:**
-- `foreach bt` - Backtrace all processes
-- `foreach files` - Files for all processes
-- `foreach vm` - VM info for all processes
+**用法:**
+- `foreach bt` - 所有进程的回溯
+- `foreach files` - 所有进程的文件
+- `foreach vm` - 所有进程的 VM 信息
 
-**Powerful for:**
-- Finding patterns across processes
-- Identifying widespread issues
+**强大之处:**
+- 查找跨进程的模式
+- 识别广泛存在的问题
 
-**Example:**
+**示例:**
 ```bash
-foreach bt | grep -B2 "UN"  # Find stuck processes
+foreach bt | grep -B2 "UN"  # 查找卡死的进程
 ```
 
 ---
 
 ### mod
-**Purpose:** Kernel module information
+**用途:** 内核模块信息
 
-**Usage:**
-- `mod` - List all modules
-- `mod -S` - Reload symbols for modules
+**用法:**
+- `mod` - 列出所有模块
+- `mod -S` - 重新加载模块的符号
 
-**When to use:** Module-related crashes
+**何时使用:** 模块相关的崩溃
 
 ---
 
 ### alias
-**Purpose:** Create command shortcuts
+**用途:** 创建命令快捷方式
 
-**Usage:**
+**用法:**
 - `alias <name> <command>`
 - `alias ll log | tail -100`
 
-**Tip:** Create aliases for frequently used command chains
+**提示:** 为常用命令链创建别名
 
 ---
 
-## Command Combinations
+## 命令组合
 
-### Quick Panic Analysis
+### 快速 Panic 分析
 ```bash
 sys
 log | tail -100
 bt
 ```
 
-### Memory Leak Hunt
+### 内存泄漏搜寻
 ```bash
 kmem -i
 kmem -s | grep -v "  0  " | sort -k6 -n -r | head -20
 ```
 
-### Deadlock Investigation
+### 死锁调查
 ```bash
 ps | grep UN
 foreach bt | grep -A5 "UN"
 bt -l <pid>
 ```
 
-### Complete System State
+### 完整系统状态
 ```bash
 sys
 ps
@@ -348,38 +348,38 @@ free
 mount
 ```
 
-## Tips and Tricks
+## 技巧与窍门
 
-1. **Piping:** Most commands support piping to grep, less, head, tail
+1. **管道 (Piping):** 大多数命令支持管道传输到 grep, less, head, tail
    ```bash
    log | grep -i error
    ps | grep UN
    ```
 
-2. **Output redirection:** Save command output
+2. **输出重定向:** 保存命令输出
    ```bash
    log > /tmp/kernlog.txt
    foreach bt > /tmp/all_backtraces.txt
    ```
 
-3. **Repeat commands:** Use `!` for command history
+3. **重复命令:** 使用 `!` 获取命令历史
    ```bash
-   !sys    # Repeat last sys command
-   !ps     # Repeat last ps command
+   !sys    # 重复上一个 sys 命令
+   !ps     # 重复上一个 ps 命令
    ```
 
-4. **Tab completion:** Crash supports tab completion for commands and symbols
+4. **Tab 补全:** Crash 支持命令和符号的 Tab 补全
 
-5. **Help system:**
+5. **帮助系统:**
    ```bash
-   help <command>     # Command-specific help
+   help <command>     # 特定命令的帮助
    help sys
    help bt
    ```
 
-## Common Pitfalls
+## 常见陷阱
 
-1. **Symbol mismatch:** If output looks garbled, check vmlinux matches vmcore
-2. **Module symbols:** Use `mod -S` to reload module symbols if needed
-3. **Address validity:** Not all addresses in memory dumps are valid - crash will warn
-4. **Output buffer:** Very large outputs may be truncated - use output redirection
+1. **符号不匹配:** 如果输出看起来是乱码，检查 vmlinux 是否与 vmcore 匹配
+2. **模块符号:** 如果需要，使用 `mod -S` 重新加载模块符号
+3. **地址有效性:** 并非内存转储中的所有地址都是有效的 - crash 会发出警告
+4. **输出缓冲区:** 非常大的输出可能会被截断 - 使用输出重定向
