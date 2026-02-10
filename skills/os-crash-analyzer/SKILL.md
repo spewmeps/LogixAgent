@@ -7,6 +7,23 @@ description: 通过 crash 工具深度分析 Linux vmcore 文件，解决各类�
 
 本 Skill 旨在指导如何通过 `crash` 命令系统化地分析 `vmcore` 文件。
 
+## 标准目录结构与启动命令
+
+用户提供的 vmcore 文件的具体路径，目录结构里面的内容是标准的，参考如下：
+
+```text
+pcie_panic/   # 故障文件夹 
+├── src       # 可选，源码路径，如果存在则要针对问题进行源码分析 
+├── vmcore # 核心vmcore文件 
+└── vmlinux # vmlinux命令 
+```
+
+**执行命令：**
+
+```bash
+cd pcie_panic && crash ./vmlinux vmcore
+```
+
 ## 核心理念：区分分析场景
 
 **这是分析的第一步，也是最关键的一步。**
