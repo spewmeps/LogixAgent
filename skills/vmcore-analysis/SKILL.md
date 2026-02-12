@@ -329,7 +329,7 @@ crash> struct task_struct.state,comm,parent <addr> # [推荐] 只看关键字段
 
 一旦确定了问题区域，再结合 `dis -l <function>` 反汇编代码，完成从“数据”到“逻辑”的闭环。
 
-使用 `scripts/analyze_struct.py` 进行自动化结构体分析。
+
 
 ### 第五阶段：根本原因分析与验证
 

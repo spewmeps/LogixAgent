@@ -61,8 +61,7 @@ crash> ps
 crash> struct task_struct ffff8800345fb040 > /tmp/task.txt
 crash> exit
 
-# 使用脚本分析
-./scripts/analyze_struct.py /tmp/task.txt --type task
+
 ```
 
 ## 配置示例
