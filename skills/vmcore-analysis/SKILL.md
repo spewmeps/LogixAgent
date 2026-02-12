@@ -109,32 +109,6 @@ cd pcie_panic && crash ./vmlinux vmcore
 
 **如果出现任何危险信号，你必须继续深挖。**
 
-## 环境检查与配置 (Pre-check & Configuration)
-
-**在执行任何分析之前，必须严格执行以下检查步骤。**
-
-推荐使用封装好的一键检查脚本 `scripts/check_environment.sh`。该脚本会自动验证命令、文件存在性以及版本兼容性。
-
-**执行规则：**
-1. **用户自定义执行优先**：如果用户已经明确提供了具体的 `crash` 执行命令（例如完整的命令行），**可以跳过**环境检测和配置步骤，直接按照用户提示的命令执行。
-2. **用户参数优先**：如果用户仅提供了路径参数（如 `crash` 路径、`vmlinux` 路径或 `vmcore` 路径），则**必须**使用用户提供的值运行检查脚本。
-3. **默认回退**：如果用户未指定任何信息，则使用脚本内置的默认值。
-4. **强制阻断**：如果执行检查脚本且返回非 0 退出码，**必须立即停止**后续所有分析步骤，并将错误信息反馈给用户。
-
-**使用方法：**
-
-```bash
-# 基本用法（使用默认路径）
-./scripts/check_environment.sh
-
-# 指定路径（优先使用用户提供的参数）
-./scripts/check_environment.sh \
-  --crash-cmd "/custom/path/to/crash" \
-  --vmlinux "/custom/path/to/vmlinux" \
-  --vmcore "/custom/path/to/vmcore"
-```
-
-**只有脚本显示 `✅ Environment check passed!`，才能进入 [分析工作流](#分析工作流)。**
 
 ## 分析工作流
 
