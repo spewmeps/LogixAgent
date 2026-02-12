@@ -129,10 +129,28 @@ run_crash() {
     source "$CONFIG_FILE"
     
     echo -e "${GREEN}Launching crash...${NC}"
-    echo "Command: $CRASH_CMD $VMLINUX_PATH $VMCORE_PATH"
+    
+    # Prepare execution environment (referencing quick_report.sh)
+    TARGET_DIR=$(dirname "$VMCORE_PATH")
+    VMCORE_FILE=$(basename "$VMCORE_PATH")
+    VMLINUX_DIR=$(dirname "$VMLINUX_PATH")
+    VMLINUX_FILE=$(basename "$VMLINUX_PATH")
+
+    # If vmlinux is in the same directory, use relative path
+    if [ "$VMLINUX_DIR" == "$TARGET_DIR" ]; then
+        FINAL_VMLINUX="./$VMLINUX_FILE"
+    else
+        FINAL_VMLINUX="$VMLINUX_PATH"
+    fi
+    FINAL_VMCORE="./$VMCORE_FILE"
+
+    echo "Working Directory: $TARGET_DIR"
+    echo "Command: $CRASH_CMD $FINAL_VMLINUX $FINAL_VMCORE"
     echo ""
     
-    exec "$CRASH_CMD" "$VMLINUX_PATH" "$VMCORE_PATH"
+    # Change to target directory and execute
+    cd "$TARGET_DIR" || exit 1
+    exec "$CRASH_CMD" "$FINAL_VMLINUX" "$FINAL_VMCORE"
 }
 
 # Main

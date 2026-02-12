@@ -85,7 +85,25 @@ echo "OK"
 
 # 3. Dry run / Compatibility check
 echo -n "[3/3] Checking compatibility (Dry Run)... "
-if "$CRASH_CMD" --minimal "$VMLINUX_PATH" "$VMCORE_PATH" <<EOF > /dev/null 2>&1
+
+# Prepare execution environment
+TARGET_DIR=$(dirname "$VMCORE_PATH")
+VMCORE_FILE=$(basename "$VMCORE_PATH")
+VMLINUX_DIR=$(dirname "$VMLINUX_PATH")
+VMLINUX_FILE=$(basename "$VMLINUX_PATH")
+
+# If vmlinux is in the same directory, use relative path
+if [ "$VMLINUX_DIR" == "$TARGET_DIR" ]; then
+    FINAL_VMLINUX="./$VMLINUX_FILE"
+else
+    FINAL_VMLINUX="$VMLINUX_PATH"
+fi
+FINAL_VMCORE="./$VMCORE_FILE"
+
+# Change to target directory
+cd "$TARGET_DIR" || exit 1
+
+if "$CRASH_CMD" --minimal "$FINAL_VMLINUX" "$FINAL_VMCORE" <<EOF > /dev/null 2>&1
 quit
 EOF
 then

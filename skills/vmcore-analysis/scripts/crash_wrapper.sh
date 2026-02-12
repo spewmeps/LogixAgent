@@ -56,7 +56,25 @@ CRASH_EOF
     echo "==================================="
     echo ""
     
-    "$CRASH_CMD" "$VMLINUX_PATH" "$VMCORE_PATH" < "$CRASH_SCRIPT" 2>&1
+    # Prepare execution environment
+    TARGET_DIR=$(dirname "$VMCORE_PATH")
+    VMCORE_FILE=$(basename "$VMCORE_PATH")
+    VMLINUX_DIR=$(dirname "$VMLINUX_PATH")
+    VMLINUX_FILE=$(basename "$VMLINUX_PATH")
+
+    # If vmlinux is in the same directory, use relative path
+    if [ "$VMLINUX_DIR" == "$TARGET_DIR" ]; then
+        FINAL_VMLINUX="./$VMLINUX_FILE"
+    else
+        FINAL_VMLINUX="$VMLINUX_PATH"
+    fi
+    FINAL_VMCORE="./$VMCORE_FILE"
+
+    echo "Working Directory: $TARGET_DIR"
+    echo "Command: $CRASH_CMD $FINAL_VMLINUX $FINAL_VMCORE"
+    
+    cd "$TARGET_DIR" || exit 1
+    "$CRASH_CMD" "$FINAL_VMLINUX" "$FINAL_VMCORE" < "$CRASH_SCRIPT" 2>&1
     
 } | tee "$LOG_FILE"
 
