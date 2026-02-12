@@ -1,73 +1,120 @@
 #!/bin/bash
 # quick_report.sh - Generate initial crash assessment report
+# Usage: ./quick_report.sh <path_to_crash_directory>
 
 set -e
 
-REPORT_DIR="${HOME}/crash_reports"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-REPORT_FILE="${REPORT_DIR}/report_${TIMESTAMP}.txt"
-
-# Load configuration
-CONFIG_FILE="${HOME}/.crash_analyzer.conf"
-if [[ -f "$CONFIG_FILE" ]]; then
-    source "$CONFIG_FILE"
-else
-    echo "Error: No configuration file found"
+# 1. Check arguments
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <path_to_crash_directory>"
+    echo "Example: $0 /home/crash/ixgbe_core"
+    echo "The directory must contain 'vmcore' and 'vmlinux' files."
     exit 1
 fi
 
-mkdir -p "$REPORT_DIR"
+TARGET_DIR="$1"
 
-echo "Generating crash analysis report..."
+# 2. Verify directory and files
+if [ ! -d "$TARGET_DIR" ]; then
+    echo "Error: Directory '$TARGET_DIR' not found."
+    exit 1
+fi
 
-# Create crash command script for quick assessment
+# Check for vmcore and vmlinux
+VMCORE_PATH="${TARGET_DIR}/vmcore"
+VMLINUX_PATH="${TARGET_DIR}/vmlinux"
+
+if [ ! -f "$VMCORE_PATH" ]; then
+    echo "Error: 'vmcore' file not found in '$TARGET_DIR'."
+    echo "Expected path: $VMCORE_PATH"
+    exit 1
+fi
+
+if [ ! -f "$VMLINUX_PATH" ]; then
+    echo "Error: 'vmlinux' file not found in '$TARGET_DIR'."
+    echo "Expected path: $VMLINUX_PATH"
+    exit 1
+fi
+
+# Check for crash command
+if ! command -v crash &> /dev/null; then
+    echo "Error: 'crash' command not found. Please install it first."
+    exit 1
+fi
+
+# 3. Prepare report file
+# Generate report in the target directory
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+REPORT_FILE="${TARGET_DIR}/quick_report_${TIMESTAMP}.txt"
+
+echo "Analyzing crash dump in: $TARGET_DIR"
+echo "Generating report to: $REPORT_FILE"
+
+# 4. Create temporary crash script with analysis commands
 CRASH_SCRIPT=$(mktemp)
 cat > "$CRASH_SCRIPT" << 'CRASH_EOF'
 # Phase 1: Initial Assessment
 sys
+bt -a
 log | tail -100
 bt
 
 # Phase 2: Context
-ps
+ps | grep UN
 bt -a
 
-# Phase 3: Memory Overview
+# Phase 3A: Memory Analysis
 kmem -i
-kmem -s | head -50
+kmem -s | sort -k 2 -n -r | head -20
 
-# Exit
+# Phase 3B: Deadlock Analysis (Check for stuck tasks)
+foreach UN bt
+
+# Phase 3C: Interrupt/Timer Analysis
+irq
+timer
+
+# Phase 3D: Filesystem/IO Analysis
+files
+mount
+dev
+
+# Phase 3E: Driver/Hardware Analysis
+mod
+log | grep -iE "hardware|error|pci|mce|warn"
+
+# Exit crash
 exit
 CRASH_EOF
 
-# Generate report
+# 5. Execute analysis
+# Change to target directory to use relative paths as requested
+pushd "$TARGET_DIR" > /dev/null
+
 {
     cat << EOF
 ================================================================================
                         CRASH ANALYSIS REPORT
 ================================================================================
 Generated: $(date)
-Analyst: $(whoami)@$(hostname)
-
-Configuration:
-  Kernel Image: $VMLINUX_PATH
-  Core Dump:    $VMCORE_PATH
-  Crash Tool:   $CRASH_CMD
+Target Directory: $TARGET_DIR
+Kernel: ./vmlinux
+Core:   vmcore
 
 ================================================================================
-                        PHASE 1: INITIAL ASSESSMENT
+                        ANALYSIS OUTPUT
 ================================================================================
-
 EOF
 
-    "$CRASH_CMD" "$VMLINUX_PATH" "$VMCORE_PATH" < "$CRASH_SCRIPT" 2>&1
+    # Execute crash command with input redirection
+    # Using ./vmlinux and vmcore as specified
+    crash ./vmlinux vmcore < "$CRASH_SCRIPT" 2>&1
 
     cat << EOF
 
 ================================================================================
                         ANALYSIS RECOMMENDATIONS
 ================================================================================
-
 Based on the initial assessment, consider:
 
 1. Review the panic message in the 'sys' output
@@ -76,22 +123,24 @@ Based on the initial assessment, consider:
 4. Look for processes in UN (uninterruptible) state
 5. Check memory statistics for OOM conditions
 
-Next Steps:
-- If memory related: Run 'kmem -s | grep -v " 0 "' to find slab leaks
-- If deadlock suspected: Run 'foreach bt | grep -A5 UN' for stuck tasks
-- If panic unclear: Run 'dis -l <function>' on crash point
+Next Steps (refer to SKILL.md):
+- Memory Issue: Phase 3A (kmem -s)
+- Deadlock: Phase 3B (bt <pid> -> struct mutex)
+- Interrupts: Phase 3C (irq, timer)
+- IO/FS: Phase 3D (files, mount)
 
 ================================================================================
 EOF
 
 } > "$REPORT_FILE"
 
+popd > /dev/null
+
+# 6. Cleanup and Summary
 rm -f "$CRASH_SCRIPT"
 
-echo "Report generated: $REPORT_FILE"
+echo "Report generated successfully: $REPORT_FILE"
 echo ""
-echo "Summary:"
-grep -A2 "PANIC\|Oops\|BUG:" "$REPORT_FILE" | head -20 || echo "  No panic messages found in report"
-
-echo ""
-echo "To view full report: less $REPORT_FILE"
+echo "--- Quick Summary (Panic/Oops) ---"
+grep -A2 "PANIC\|Oops\|BUG:" "$REPORT_FILE" | head -20 || echo "  No obvious panic messages found in summary."
+echo "----------------------------------"
