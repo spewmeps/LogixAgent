@@ -2,21 +2,16 @@
 
 ## 快速开始
 
-1. **配置环境：**
+1. **生成快速报告：**
    ```bash
-   ./scripts/crash_config.sh set \
-     --vmlinux /usr/lib/debug/lib/modules/$(uname -r)/vmlinux \
-     --vmcore /var/crash/vmcore
+   # 用法: ./scripts/quick_report.sh <故障目录路径>
+   ./scripts/quick_report.sh /var/crash/202402051200
    ```
 
-2. **验证配置：**
+2. **启动手动分析：**
    ```bash
-   ./scripts/crash_config.sh test
-   ```
-
-3. **生成快速报告：**
-   ```bash
-   ./scripts/quick_report.sh
+   cd /var/crash/202402051200
+   crash ./vmlinux vmcore
    ```
 
 ## 示例工作流
@@ -24,23 +19,19 @@
 ### 场景 1：分析新的崩溃
 
 ```bash
-# 1. 设置路径
-./scripts/crash_config.sh set \
-  --vmlinux /usr/lib/debug/vmlinux-5.10.0 \
-  --vmcore /var/crash/202402051200/vmcore
+# 1. 自动全景扫描
+./scripts/quick_report.sh /var/crash/202402051200
 
-# 2. 运行自动化分析
-./scripts/crash_wrapper.sh
-
-# 3. 查看日志
-less ~/crash_logs/crash_session_*.log
+# 2. 查看生成的报告
+less /var/crash/202402051200/quick_report.txt
 ```
 
 ### 场景 2：手动调查
 
 ```bash
-# 使用保存的配置启动 crash
-./scripts/crash_config.sh run
+# 进入目录并启动 crash
+cd /var/crash/202402051200
+crash ./vmlinux vmcore
 
 # 在 crash 内部：
 crash> sys
@@ -64,37 +55,29 @@ crash> exit
 
 ```
 
-## 配置示例
+## 高级用法示例
 
 ### 多个崩溃转储 (Multiple Crash Dumps)
 
 ```bash
-# 为不同的 crash 保存配置
+# 定义变量
 export VMLINUX=/usr/lib/debug/vmlinux-5.10.0
-export VMCORE_CRASH1=/var/crash/crash1/vmcore
-export VMCORE_CRASH2=/var/crash/crash2/vmcore
 
 # 分析第一个 crash
-./scripts/crash_config.sh set --vmlinux $VMLINUX --vmcore $VMCORE_CRASH1
-./scripts/quick_report.sh
+./scripts/quick_report.sh /var/crash/crash1
 
 # 分析第二个 crash
-./scripts/crash_config.sh set --vmlinux $VMLINUX --vmcore $VMCORE_CRASH2
-./scripts/quick_report.sh
+./scripts/quick_report.sh /var/crash/crash2
 ```
 
 ### 远程崩溃转储分析 (Remote Crash Dump Analysis)
 
 ```bash
-# 从远程服务器复制 vmcore
-scp server:/var/crash/vmcore /tmp/remote_vmcore
+# 从远程服务器复制目录
+scp -r server:/var/crash/202402051200 /tmp/crash_case
 
 # 分析
-./scripts/crash_config.sh set \
-  --vmlinux /usr/lib/debug/vmlinux-5.10.0 \
-  --vmcore /tmp/remote_vmcore
-  
-./scripts/quick_report.sh
+./scripts/quick_report.sh /tmp/crash_case
 ```
 
 ## 技巧 (Tips)

@@ -670,24 +670,9 @@ ps → bt <pid> → bt -l → waitq
 
 ## 辅助脚本
 
-### scripts/evidence_chain.sh ⭐
-**交互式证据链构建器** - 引导你从症状到根本原因构建完整、可验证的证据链。生成包含技术和通俗语言解释的综合报告。
-
-**何时使用：** 在阶段 5 之前或期间，以确保每个主张都有确凿证据。
-
-**输出：** 完整的证据链报告，包含可视化和通俗语言翻译。
-
-### scripts/rca_wizard.sh ⭐
-自动化 RCA 会话，包含结构化的 5 Whys、证据收集、验证清单。生成带时间戳的 RCA 报告。
-
-### scripts/crash_wrapper.sh
-使用配置好的路径进行自动化 crash 会话，将输出保存到带时间戳的日志中。
-
 ### scripts/quick_report.sh
-一条命令生成初步评估报告 (sys, log, bt, ps, kmem -i)。
+一条命令生成初步评估报告 (sys, log, bt, ps, kmem -i)，覆盖全景自动扫描。
 
-### scripts/analyze_struct.py
-从 crash 输出中解析并美化打印内核数据结构。
 
 ## 详细参考资料
 
