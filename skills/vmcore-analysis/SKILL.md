@@ -171,8 +171,10 @@ crash> bt               # 崩溃任务的回溯 (Backtrace)
 执行以下脚本对 vmcore 进行全面的初步体检，它会覆盖内存、进程、IO、网络等多个维度：
 
 ```bash
-# 用法: ./scripts/quick_report.sh <故障目录路径>
+# 用法: ./scripts/quick_report.sh <故障目录路径> [输出报告路径]
 ./scripts/quick_report.sh /home/crash/ixgbe_core
+# 或者指定输出文件路径
+./scripts/quick_report.sh /home/crash/ixgbe_core /tmp/analysis_report.txt
 ```
 
 **分析策略：** 根据脚本输出的摘要报告，初步判断故障方向：

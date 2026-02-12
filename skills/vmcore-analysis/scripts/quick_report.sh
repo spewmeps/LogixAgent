@@ -1,18 +1,20 @@
 #!/bin/bash
 # quick_report.sh - Generate initial crash assessment report
-# Usage: ./quick_report.sh <path_to_crash_directory>
+# Usage: ./quick_report.sh <path_to_crash_directory> [output_report_path]
 
 set -e
 
 # 1. Check arguments
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <path_to_crash_directory>"
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "Usage: $0 <path_to_crash_directory> [output_report_path]"
     echo "Example: $0 /home/crash/ixgbe_core"
+    echo "Example: $0 /home/crash/ixgbe_core /tmp/my_report.txt"
     echo "The directory must contain 'vmcore' and 'vmlinux' files."
     exit 1
 fi
 
 TARGET_DIR="$1"
+OUTPUT_REPORT_PATH="$2"
 
 # 2. Verify directory and files
 if [ ! -d "$TARGET_DIR" ]; then
@@ -43,9 +45,32 @@ if ! command -v crash &> /dev/null; then
 fi
 
 # 3. Prepare report file
-# Generate report in the target directory
+# Generate report in the target directory or use provided path
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-REPORT_FILE="${TARGET_DIR}/quick_report_${TIMESTAMP}.txt"
+
+if [ -n "$OUTPUT_REPORT_PATH" ]; then
+    # Use provided path, ensure directory exists
+    REPORT_DIR=$(dirname "$OUTPUT_REPORT_PATH")
+    if [ ! -d "$REPORT_DIR" ]; then
+        echo "Creating report directory: $REPORT_DIR"
+        mkdir -p "$REPORT_DIR"
+    fi
+    # If path is relative, make it absolute or handle it carefully. 
+    # For simplicity, we'll assume the user provides a valid path relative to current PWD or absolute.
+    # To be safe when we change directory later, let's resolve it to absolute path if possible, 
+    # or keep it as is if we don't change directory or change back.
+    # Since we use 'pushd', we should resolve absolute path for REPORT_FILE if it's not absolute.
+    if [[ "$OUTPUT_REPORT_PATH" != /* ]]; then
+        OUTPUT_REPORT_PATH="$(pwd)/$OUTPUT_REPORT_PATH"
+    fi
+    REPORT_FILE="$OUTPUT_REPORT_PATH"
+else
+    REPORT_FILE="${TARGET_DIR}/quick_report_${TIMESTAMP}.txt"
+    # Resolve absolute path for consistency
+    if [[ "$REPORT_FILE" != /* ]]; then
+        REPORT_FILE="$(cd "$TARGET_DIR" && pwd)/quick_report_${TIMESTAMP}.txt"
+    fi
+fi
 
 echo "Analyzing crash dump in: $TARGET_DIR"
 echo "Generating report to: $REPORT_FILE"
