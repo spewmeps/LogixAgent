@@ -156,9 +156,9 @@ crash> bt               # 崩溃任务的回溯 (Backtrace)
 
 ```bash
 # 用法: ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <故障目录路径> [输出报告路径]" -u root
-ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /home/crash/ixgbe_core" -u root
+ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <vmcore_dir>" -u root
 # 或者指定输出文件路径
-ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /home/crash/ixgbe_core /tmp/analysis_report.txt" -u root
+ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <vmcore_dir> <report_output_path>" -u root
 ```
 
 **分析策略：** 根据脚本输出的摘要报告，初步判断故障方向：
@@ -199,7 +199,7 @@ crash> foreach bt       # 所有进程回溯 - 识别模式
 
 ```bash
 # 用法: ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <故障目录路径> [输出报告路径]" -u root
-ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /home/crash/ixgbe_core" -u root
+ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <vmcore_dir>" -u root
 ```
 
 **分析策略：** 将脚本输出的摘要与用户的描述进行对比：

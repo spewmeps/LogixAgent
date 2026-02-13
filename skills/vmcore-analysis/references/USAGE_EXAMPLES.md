@@ -5,14 +5,14 @@
 1. **生成快速报告：**
    ```bash
    # 用法: ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <故障目录路径>" -u root
-   ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /var/crash/202402051200" -u root
+   ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <vmcore_dir>" -u root
    ```
 
 2. **启动手动分析：**
    *注意：Crash 是交互式工具。若需自动化执行特定命令，可使用 Ansible shell 模块配合管道。*
    ```bash
    # 示例：远程执行 crash 命令获取堆栈
-   ansible -i "<IP>," all -m shell -a "echo 'bt' | crash /usr/lib/debug/lib/modules/$(uname -r)/vmlinux /var/crash/202402051200/vmcore" -u root
+   ansible -i "<IP>," all -m shell -a "echo 'bt' | crash <vmlinux_path> <vmcore_path>" -u root
    ```
 
 ## 示例工作流
@@ -21,10 +21,10 @@
 
 ```bash
 # 1. 自动全景扫描
-ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /var/crash/202402051200" -u root
+ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <vmcore_dir>" -u root
 
 # 2. 查看生成的报告 (假设报告已生成在目标机)
-ansible -i "<IP>," all -m command -a "cat /var/crash/202402051200/quick_report.txt" -u root
+ansible -i "<IP>," all -m command -a "cat <report_output_path>" -u root
 ```
 
 ### 场景 2：手动调查 (交互式)
@@ -33,7 +33,7 @@ ansible -i "<IP>," all -m command -a "cat /var/crash/202402051200/quick_report.t
 
 ```bash
 # 示例：一次性获取 sys, log, bt 信息
-ansible -i "<IP>," all -m shell -a "echo -e 'sys\nlog -t\nbt' | crash /usr/lib/debug/lib/modules/$(uname -r)/vmlinux /var/crash/202402051200/vmcore" -u root
+ansible -i "<IP>," all -m shell -a "echo -e 'sys\nlog -t\nbt' | crash <vmlinux_path> <vmcore_path>" -u root
 ```
 
 ### 场景 3：分析特定结构
@@ -57,20 +57,20 @@ crash> exit
 
 ```bash
 # 分析第一个 crash
-ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /var/crash/crash1" -u root
+ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <crash1_dir>" -u root
 
 # 分析第二个 crash
-ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /var/crash/crash2" -u root
+ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <crash2_dir>" -u root
 ```
 
 ### 远程崩溃转储分析 (Remote Crash Dump Analysis)
 
 ```bash
 # 从远程服务器下载目录到控制节点 (使用 fetch 或 synchronize 模块)
-ansible -i "<IP>," all -m synchronize -a "mode=pull src=/var/crash/202402051200 dest=/tmp/crash_case" -u root
+ansible -i "<IP>," all -m synchronize -a "mode=pull src=<remote_crash_dir> dest=<local_dest_dir>" -u root
 
 # 本地分析 (假设控制节点已安装 crash)
-./scripts/quick_report.sh /tmp/crash_case/202402051200
+./scripts/quick_report.sh <local_crash_dir>
 ```
 
 ## 技巧 (Tips)
