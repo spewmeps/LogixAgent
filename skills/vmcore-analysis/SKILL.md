@@ -24,6 +24,22 @@ pcie_panic/   # 故障文件夹
 cd pcie_panic && crash ./vmlinux vmcore
 ```
 
+## 远程执行约束 (Remote Execution Constraints)
+
+如果确认需要在远端服务器执行命令或脚本，**必须**使用 Ansible 进行操作：
+
+**执行单条命令：**
+```bash
+ansible all -i "<IP>," -m command -a "<Command>"
+# 示例: ansible all -i "192.168.1.1," -m command -a "echo hello"
+```
+
+**执行本地脚本：**
+```bash
+ansible all -i "<IP>," -m script -a "<Local_Script_Path>"
+# 示例: ansible all -i "192.168.1.1," -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh"
+```
+
 ## 分析策略：基于用户输入的导引
 
 在开始技术分析之前，**首要任务**是评估用户提供信息的明确程度，以此决定分析的策略路径。
