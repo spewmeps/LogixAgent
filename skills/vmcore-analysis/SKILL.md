@@ -18,15 +18,9 @@ pcie_panic/   # 故障文件夹
 └── vmlinux # vmlinux命令 
 ```
 
-**执行命令：**
+## 执行约束 (Execution Constraints)
 
-```bash
-cd pcie_panic && crash ./vmlinux vmcore
-```
-
-## 远程执行约束 (Remote Execution Constraints)
-
-如果确认需要在远端服务器执行命令或脚本，**必须**使用 Ansible 进行操作：
+所有的命令执行（无论本地还是远端）**必须**使用 Ansible 进行操作：
 
 **执行单条命令：**
 ```bash
