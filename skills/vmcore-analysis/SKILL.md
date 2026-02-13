@@ -24,14 +24,14 @@ pcie_panic/   # 故障文件夹
 
 **执行单条命令：**
 ```bash
-ansible all -i "<IP>," -m command -a "<Command>"
-# 示例: ansible all -i "192.168.1.1," -m command -a "echo hello"
+ansible -i "<IP>," all -m command -a "<Command>" -u root
+# 示例: ansible -i "192.168.1.1," all -m command -a "ls -alh" -u root
 ```
 
 **执行本地脚本：**
 ```bash
-ansible all -i "<IP>," -m script -a "<Local_Script_Path>"
-# 示例: ansible all -i "192.168.1.1," -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh"
+ansible -i "<IP>," all -m script -a "<Local_Script_Path>" -u root
+# 示例: ansible -i "192.168.1.1," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh" -u root
 ```
 
 ## 分析策略：基于用户输入的导引
