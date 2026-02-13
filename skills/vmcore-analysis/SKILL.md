@@ -155,10 +155,10 @@ crash> bt               # 崩溃任务的回溯 (Backtrace)
 执行以下脚本对 vmcore 进行全面的初步体检，它会覆盖内存、进程、IO、网络等多个维度：
 
 ```bash
-# 用法: ./scripts/quick_report.sh <故障目录路径> [输出报告路径]
-./scripts/quick_report.sh /home/crash/ixgbe_core
+# 用法: ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <故障目录路径> [输出报告路径]" -u root
+ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /home/crash/ixgbe_core" -u root
 # 或者指定输出文件路径
-./scripts/quick_report.sh /home/crash/ixgbe_core /tmp/analysis_report.txt
+ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /home/crash/ixgbe_core /tmp/analysis_report.txt" -u root
 ```
 
 **分析策略：** 根据脚本输出的摘要报告，初步判断故障方向：
@@ -198,8 +198,8 @@ crash> foreach bt       # 所有进程回溯 - 识别模式
 执行以下脚本生成系统健康快照：
 
 ```bash
-# 用法: ./scripts/quick_report.sh <故障目录路径> [输出报告路径]
-./scripts/quick_report.sh /home/crash/ixgbe_core
+# 用法: ansible -i "<IP>," all -m script -a "./scripts/quick_report.sh <故障目录路径> [输出报告路径]" -u root
+ansible -i "<IP>," all -m script -a "/opt/src/LogixAgent/skills/vmcore-analysis/scripts/quick_report.sh /home/crash/ixgbe_core" -u root
 ```
 
 **分析策略：** 将脚本输出的摘要与用户的描述进行对比：
